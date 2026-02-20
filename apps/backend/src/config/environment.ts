@@ -1,3 +1,5 @@
+import './load-env';
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.API_PORT || '4000', 10),

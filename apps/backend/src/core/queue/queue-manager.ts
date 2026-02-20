@@ -26,7 +26,9 @@ export class QueueManager {
   }
 
   private getConnection() {
-    logger.debug(`QueueManager connection config: host=${config.redis.host}, port=${config.redis.port}, passSet=${!!config.redis.password}`);
+    if (config.redis.url) {
+      return config.redis.url;
+    }
     return {
       host: config.redis.host,
       port: config.redis.port,

@@ -20,6 +20,11 @@ export class RedisClient {
           database: config.redis.db,
         };
 
+    const urlLog = config.redis.url 
+      ? `Using Redis URL: ${config.redis.url.slice(0, 15)}...`
+      : `Using Redis host: ${config.redis.host}:${config.redis.port}`;
+    logger.info(`Initializing Redis Client... ${urlLog}`);
+
     this.client = createClient(redisConfig);
     this.subscriber = createClient(redisConfig);
     this.publisher = createClient(redisConfig);
