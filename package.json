@@ -2,6 +2,7 @@
   "name": "league-of",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@9.2.0",
   "description": "League Of - Competitive Social Web App",
   "workspaces": [
     "apps/frontend",
