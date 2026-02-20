@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: leagueof-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: devpassword
+      MONGO_INITDB_DATABASE: leagueof_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - leagueof-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: leagueof-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - leagueof-dev-network
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: leagueof-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: devpassword
+      ME_CONFIG_MONGODB_URL: mongodb://admin:devpassword@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+    depends_on:
+      - mongodb
+    networks:
+      - leagueof-dev-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: leagueof-redis-commander
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - leagueof-dev-network
+
+volumes:
+  mongodb_dev_data:
+  redis_dev_data:
+
+networks:
+  leagueof-dev-network:
+    driver: bridge
