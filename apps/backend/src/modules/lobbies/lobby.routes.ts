@@ -3,7 +3,7 @@ import { authenticate } from '@/core/middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate, async (_req, res) => {
   res.json({ message: 'Lobby routes - managed via Socket.IO' });
 });
 

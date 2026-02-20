@@ -9,14 +9,16 @@ export class RedisClient {
   private publisher: RedisClientType;
 
   private constructor() {
-    const redisConfig = {
-      socket: {
-        host: config.redis.host,
-        port: config.redis.port,
-      },
-      password: config.redis.password,
-      database: config.redis.db,
-    };
+    const redisConfig = config.redis.url 
+      ? { url: config.redis.url }
+      : {
+          socket: {
+            host: config.redis.host,
+            port: config.redis.port,
+          },
+          password: config.redis.password,
+          database: config.redis.db,
+        };
 
     this.client = createClient(redisConfig);
     this.subscriber = createClient(redisConfig);

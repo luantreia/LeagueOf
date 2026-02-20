@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { logger } from '@/core/logging/logger';
 
 export class NotificationSocketHandler {
-  static handleConnection(io: Server, socket: Socket & { userId?: string }): void {
+  static handleConnection(_io: Server, socket: Socket & { userId?: string }): void {
     logger.debug(`Notification socket handler connected for user: ${socket.userId}`);
     
     // Join user's notification room

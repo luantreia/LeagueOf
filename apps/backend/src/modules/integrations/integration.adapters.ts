@@ -79,7 +79,7 @@ export class RiotGamesAdapter extends BaseIntegrationAdapter {
     }
   }
 
-  async getMatchHistory(region: string, puuid: string, count: number = 20): Promise<any> {
+  async getMatchHistory(_region: string, puuid: string, count: number = 20): Promise<any> {
     if (!this.isEnabled || !this.client) {
       throw new AppError('Riot Games integration not available', 503);
     }

@@ -5,7 +5,7 @@ import { IntegrationManager } from './integration.adapters';
 const router = Router();
 const integrationManager = IntegrationManager.getInstance();
 
-router.get('/health', authenticate, authorize('admin'), async (req, res, next) => {
+router.get('/health', authenticate, authorize('admin'), async (_req, res, next) => {
   try {
     const health = await integrationManager.healthCheck();
     res.json({ health });
@@ -24,9 +24,9 @@ router.get('/riot/summoner/:region/:name', authenticate, async (req, res, next) 
     }
     
     const data = await (riotAdapter as any).getSummonerByName(region, name);
-    res.json(data);
+    return res.json(data);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -40,9 +40,9 @@ router.get('/steam/player/:steamId', authenticate, async (req, res, next) => {
     }
     
     const data = await (steamAdapter as any).getPlayerSummaries([steamId]);
-    res.json(data);
+    return res.json(data);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

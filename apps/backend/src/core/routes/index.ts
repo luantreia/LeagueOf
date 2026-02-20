@@ -25,7 +25,7 @@ export const setupRoutes = (app: Application): void => {
   app.use('/api', router);
 
   // 404 handler
-  app.use('*', (req, res) => {
+  app.use('*', (_req, res) => {
     res.status(404).json({
       status: 'error',
       message: 'Route not found',

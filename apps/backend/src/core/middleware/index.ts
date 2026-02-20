@@ -33,7 +33,7 @@ export const setupMiddleware = (app: Application): void => {
   app.use('/api/', rateLimiter);
 
   // Health check (bypass rate limiting)
-  app.get('/api/health', (req, res) => {
+  app.get('/api/health', (_req, res) => {
     res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
