@@ -43,7 +43,7 @@ export class QueueManager {
     }
 
     const queue = new Queue(name, {
-      connection: this.getConnection(),
+      connection: this.getConnection() as any,
       defaultJobOptions: {
         attempts: 3,
         backoff: {
@@ -70,7 +70,7 @@ export class QueueManager {
     }
 
     const worker = new Worker(name, processor, {
-      connection: this.getConnection(),
+      connection: this.getConnection() as any,
       concurrency: 5,
     });
 
