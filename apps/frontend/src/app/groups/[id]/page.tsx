@@ -77,7 +77,7 @@ export default function GroupDetailPage() {
   }
 
   const group = response.data;
-  const rankings = leaderboardResponse?.data?.rankings || [];
+  const rankings = leaderboardResponse?.rankings || [];
   const isOwner = user?._id === (group.owner?._id || group.owner); // Support both populated and ID
   const isMember = group.members?.some((m: any) => (m.user?._id || m.user) === user?._id);
   const isPublic = group.settings?.isPublic;

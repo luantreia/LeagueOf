@@ -171,6 +171,11 @@ export class ApiClient {
     return response.data;
   }
 
+  async completeMatch(id: string, data: any) {
+    const response = await this.client.post(`/api/matches/${id}/complete`, data);
+    return response.data;
+  }
+
   // Notifications
   async getNotifications(params?: any) {
     const response = await this.client.get('/api/notifications', { params });
