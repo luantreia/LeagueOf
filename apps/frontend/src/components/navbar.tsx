@@ -13,7 +13,7 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const navLinks = [
-    { name: 'CAMPOS DE BATALLA', href: '/matches' },
+    { name: 'PARTIDAS', href: '/matches' },
     { name: 'RANKINGS', href: '/rankings' },
     { name: 'GRUPOS', href: '/groups' },
   ];

@@ -161,6 +161,11 @@ export class ApiClient {
     return response.data;
   }
 
+  async getMatchSummary() {
+    const response = await this.client.get('/api/matches/summary/me');
+    return response.data;
+  }
+
   async getMatch(id: string) {
     const response = await this.client.get(`/api/matches/${id}`);
     return response.data;

@@ -22,12 +22,68 @@ export class MatchService {
       query.status = params.status;
     }
 
-    return await Match.find(query)
+    if (params.gameType) {
+      query.gameType = new RegExp(params.gameType, 'i');
+    }
+
+    if (params.result && params.result !== 'all') {
+      if (params.result === 'draw') {
+        query.winner = { $exists: false };
+        query.status = 'completed';
+      } else {
+        const groups = await Group.find({ isActive: true, 'members.user': userId }).select('_id');
+        const groupIds = params.groupId ? [params.groupId] : groups.map((group) => group._id);
+        query.group = { $in: groupIds };
+      }
+    }
+
+    if (params.dateFrom || params.dateTo) {
+      query.createdAt = {};
+      if (params.dateFrom) query.createdAt.$gte = new Date(params.dateFrom);
+      if (params.dateTo) {
+        const dateTo = new Date(params.dateTo);
+        dateTo.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = dateTo;
+      }
+    }
+
+    const matches = await Match.find(query)
       .populate('group', 'name handle rankingConfig')
       .populate('createdBy', 'username displayName avatar')
       .populate('teams.players.user', 'username displayName avatar')
       .sort({ createdAt: -1 })
       .limit(Number(params.limit) || 50);
+
+    if (params.result && ['win', 'loss'].includes(params.result)) {
+      return matches.filter((match: any) => this.getUserResult(match, userId) === params.result);
+    }
+
+    return matches;
+  }
+
+  async getMatchSummary(userId: string): Promise<{
+    total: number;
+    active: number;
+    completed: number;
+    wins: number;
+    losses: number;
+    draws: number;
+  }> {
+    const matches = await this.getMatches(userId, { limit: 500 });
+
+    return matches.reduce((summary, match: any) => {
+      summary.total += 1;
+      if (match.status === 'completed') {
+        summary.completed += 1;
+        const result = this.getUserResult(match, userId);
+        if (result === 'win') summary.wins += 1;
+        if (result === 'loss') summary.losses += 1;
+        if (result === 'draw') summary.draws += 1;
+      } else {
+        summary.active += 1;
+      }
+      return summary;
+    }, { total: 0, active: 0, completed: 0, wins: 0, losses: 0, draws: 0 });
   }
 
   async getMatch(id: string, userId: string): Promise<IMatch> {
@@ -162,5 +218,20 @@ export class MatchService {
     }
 
     return group;
+  }
+
+  private getUserResult(match: any, userId: string): 'win' | 'loss' | 'draw' | null {
+    if (match.status !== 'completed') return null;
+    if (match.winner === undefined || match.winner === null) return 'draw';
+
+    const teamIndex = match.teams.findIndex((team: any) =>
+      team.players.some((player: any) => {
+        const playerId = (player.user?._id || player.user).toString();
+        return playerId === userId;
+      })
+    );
+
+    if (teamIndex === -1) return null;
+    return teamIndex === match.winner ? 'win' : 'loss';
   }
 }

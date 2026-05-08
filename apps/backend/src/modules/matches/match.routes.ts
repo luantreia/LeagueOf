@@ -7,6 +7,15 @@ import { ApiResponse } from '@/shared/utils/api-response';
 const router = Router();
 const matchService = new MatchService();
 
+router.get('/summary/me', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const summary = await matchService.getMatchSummary(req.user!.id);
+    ApiResponse.success(res, summary, 'Match summary retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const matches = await matchService.getMatches(req.user!.id, req.query);
