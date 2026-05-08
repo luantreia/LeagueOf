@@ -61,6 +61,10 @@ export class RedisClient {
 
   public async connect(): Promise<void> {
     try {
+      if (config.env === 'production' && !config.redis.url && config.redis.host === 'localhost') {
+        throw new Error('REDIS_URL is required in production. Render does not provide Redis on localhost.');
+      }
+
       await Promise.all([
         this.client.connect(),
         this.subscriber.connect(),
