@@ -12,11 +12,16 @@ const parseTrustProxy = (value: string | undefined) => {
   return Number.isNaN(numericValue) ? value : numericValue;
 };
 
-const redisUrl =
-  process.env.REDIS_URL ||
-  process.env.redis_url ||
-  process.env.REDIS_PRIVATE_URL ||
-  process.env.REDIS_EXTERNAL_URL;
+const redisUrlCandidates = [
+  ['REDIS_URL', process.env.REDIS_URL],
+  ['redis_url', process.env.redis_url],
+  ['REDIS_PRIVATE_URL', process.env.REDIS_PRIVATE_URL],
+  ['REDIS_EXTERNAL_URL', process.env.REDIS_EXTERNAL_URL],
+] as const;
+
+const redisUrlCandidate = redisUrlCandidates.find(([, value]) => Boolean(value));
+const redisUrl = redisUrlCandidate?.[1];
+const redisUrlSource = redisUrlCandidate?.[0];
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
@@ -37,6 +42,7 @@ export const config = {
   // Redis
   redis: {
     url: redisUrl,
+    urlSource: redisUrlSource,
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD,

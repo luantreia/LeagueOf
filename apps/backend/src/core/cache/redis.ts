@@ -21,7 +21,7 @@ export class RedisClient {
         };
 
     const urlLog = config.redis.url 
-      ? `Using Redis URL: ${config.redis.url.slice(0, 15)}...`
+      ? `Using Redis URL from ${config.redis.urlSource}: ${config.redis.url.slice(0, 15)}...`
       : `Using Redis host: ${config.redis.host}:${config.redis.port}`;
     logger.info(`Initializing Redis Client... ${urlLog}`);
 
