@@ -31,9 +31,6 @@ export const setupMiddleware = (app: Application): void => {
     app.use(morgan('combined', { stream: logStream }));
   }
 
-  // Rate limiting
-  app.use('/api/', rateLimiter);
-
   // Health check (bypass rate limiting)
   app.get('/api/health', (_req, res) => {
     res.status(200).json({
@@ -42,4 +39,7 @@ export const setupMiddleware = (app: Application): void => {
       uptime: process.uptime(),
     });
   });
+
+  // Rate limiting
+  app.use('/api/', rateLimiter);
 };

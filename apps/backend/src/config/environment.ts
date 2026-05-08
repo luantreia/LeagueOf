@@ -28,6 +28,12 @@ const brevoApiKey =
   process.env.brevo_api_key ||
   process.env.SENDINBLUE_API_KEY;
 
+const frontendUrl = process.env.FRONTEND_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:3000';
+const corsOrigins = Array.from(new Set([
+  ...(process.env.CORS_ORIGIN?.split(',') || []),
+  frontendUrl,
+].map((origin) => origin.trim()).filter(Boolean)));
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.API_PORT || '4000', 10),
@@ -66,12 +72,12 @@ export const config = {
 
   // CORS
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    origin: corsOrigins,
     credentials: true,
   },
 
   app: {
-    frontendUrl: process.env.FRONTEND_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:3000',
+    frontendUrl,
   },
 
   email: {

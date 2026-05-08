@@ -22,7 +22,7 @@ export const initRateLimiters = () => {
     legacyHeaders: false,
     store: createRedisStore('rate_limit:'),
     message: { error: 'Too many requests, please try again later.' },
-    skip: (req) => req.path === '/api/health',
+    skip: (req) => req.method === 'OPTIONS' || req.path === '/health' || req.path === '/api/health',
   });
 
   strictRateLimiterInstance = rateLimit({
