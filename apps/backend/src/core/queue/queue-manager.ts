@@ -27,8 +27,17 @@ export class QueueManager {
 
   private getConnection() {
     if (config.redis.url) {
-      return config.redis.url;
+      const redisUrl = new URL(config.redis.url);
+      return {
+        host: redisUrl.hostname,
+        port: Number(redisUrl.port || 6379),
+        username: redisUrl.username || undefined,
+        password: redisUrl.password ? decodeURIComponent(redisUrl.password) : undefined,
+        tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
+        maxRetriesPerRequest: null,
+      };
     }
+
     return {
       host: config.redis.host,
       port: config.redis.port,
