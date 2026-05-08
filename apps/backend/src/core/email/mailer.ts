@@ -11,7 +11,10 @@ interface MailPayload {
 
 export class Mailer {
   isConfigured(): boolean {
-    return Boolean(config.email.smtp.host && config.email.smtp.user && config.email.smtp.pass);
+    return Boolean(
+      config.email.brevoApiKey ||
+      (config.email.smtp.host && config.email.smtp.user && config.email.smtp.pass)
+    );
   }
 
   async send(payload: MailPayload): Promise<void> {
@@ -25,6 +28,11 @@ export class Mailer {
         subject: payload.subject,
         text: payload.text,
       });
+      return;
+    }
+
+    if (config.email.brevoApiKey) {
+      await this.sendWithBrevo(payload);
       return;
     }
 
@@ -54,5 +62,41 @@ export class Mailer {
       text: payload.text,
       html: payload.html,
     });
+  }
+
+  private async sendWithBrevo(payload: MailPayload): Promise<void> {
+    const from = this.parseFromAddress(config.email.from);
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': config.email.brevoApiKey!,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: from,
+        to: [{ email: payload.to }],
+        subject: payload.subject,
+        htmlContent: payload.html,
+        textContent: payload.text,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Brevo email send failed: ${response.status} ${body}`);
+    }
+  }
+
+  private parseFromAddress(from: string): { name?: string; email: string } {
+    const match = from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+    if (!match) {
+      return { email: from.replace(/"/g, '').trim() };
+    }
+
+    return {
+      name: match[1].replace(/"/g, '').trim() || undefined,
+      email: match[2].trim(),
+    };
   }
 }

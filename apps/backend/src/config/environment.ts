@@ -71,6 +71,7 @@ export const config = {
 
   email: {
     from: process.env.MAIL_FROM || 'League Of <no-reply@leagueof.local>',
+    brevoApiKey: process.env.BREVO_API_KEY,
     smtp: {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587', 10),
