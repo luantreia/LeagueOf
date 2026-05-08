@@ -12,6 +12,8 @@ export interface IUser extends Document {
   isVerified: boolean;
   isActive: boolean;
   refreshTokens: string[];
+  passwordResetTokenHash?: string;
+  passwordResetExpiresAt?: Date;
   lastLogin?: Date;
   preferences: {
     notifications: boolean;
@@ -75,6 +77,14 @@ const userSchema = new Schema<IUser>(
     refreshTokens: [{
       type: String,
     }],
+    passwordResetTokenHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      select: false,
+    },
     lastLogin: {
       type: Date,
     },
@@ -121,6 +131,7 @@ const userSchema = new Schema<IUser>(
 // Indexes for performance
 userSchema.index({ isActive: 1, isVerified: 1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ passwordResetTokenHash: 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

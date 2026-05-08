@@ -54,6 +54,33 @@ export class AuthController {
     }
   };
 
+  forgotPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email } = req.body;
+      await this.authService.requestPasswordReset(email);
+
+      ApiResponse.success(
+        res,
+        null,
+        'Si existe una cuenta con ese email, enviaremos un enlace para restablecer la contrasena'
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { token, password } = req.body;
+      await this.authService.resetPassword(token, password);
+
+      res.clearCookie('refreshToken');
+      ApiResponse.success(res, null, 'Contrasena actualizada correctamente');
+    } catch (error) {
+      next(error);
+    }
+  };
+
   refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const refreshToken = req.body.refreshToken || req.cookies.refreshToken;

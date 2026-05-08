@@ -34,6 +34,14 @@ export const register = async (userData: any): Promise<AuthResponse> => {
   return data.data;
 };
 
+export const forgotPassword = async (email: string): Promise<void> => {
+  await apiClient.forgotPassword(email);
+};
+
+export const resetPassword = async (token: string, password: string): Promise<void> => {
+  await apiClient.resetPassword(token, password);
+};
+
 export const logout = async (): Promise<void> => {
   await apiClient.logout();
 };

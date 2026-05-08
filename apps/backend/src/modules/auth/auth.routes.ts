@@ -6,7 +6,9 @@ import { strictRateLimiter } from '@/core/middleware/rate-limiter';
 import { 
   registerSchema, 
   loginSchema, 
-  refreshTokenSchema 
+  refreshTokenSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema 
 } from './auth.validation';
 
 const router = Router();
@@ -25,6 +27,20 @@ router.post(
   strictRateLimiter,
   validate(loginSchema),
   authController.login
+);
+
+router.post(
+  '/forgot-password',
+  strictRateLimiter,
+  validate(forgotPasswordSchema),
+  authController.forgotPassword
+);
+
+router.post(
+  '/reset-password',
+  strictRateLimiter,
+  validate(resetPasswordSchema),
+  authController.resetPassword
 );
 
 router.post(
