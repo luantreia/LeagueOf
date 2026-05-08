@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/api-client';
@@ -54,6 +54,13 @@ export default function MatchesPage() {
     dateFrom: '',
     dateTo: '',
   });
+
+  useEffect(() => {
+    const status = new URLSearchParams(window.location.search).get('status');
+    if (status) {
+      setFilters((current) => ({ ...current, status }));
+    }
+  }, []);
 
   const queryParams = useMemo(() => {
     return Object.fromEntries(
