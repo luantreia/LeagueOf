@@ -1,8 +1,21 @@
 import './load-env';
 
+const parseTrustProxy = (value: string | undefined) => {
+  if (!value) {
+    return process.env.NODE_ENV === 'production' ? 1 : false;
+  }
+
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+
+  const numericValue = Number(value);
+  return Number.isNaN(numericValue) ? value : numericValue;
+};
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.API_PORT || '4000', 10),
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   
   // Database
   mongodb: {

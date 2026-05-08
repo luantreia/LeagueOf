@@ -10,6 +10,8 @@ import { logStream } from '@/core/logging/logger';
 import { rateLimiter } from './rate-limiter';
 
 export const setupMiddleware = (app: Application): void => {
+  app.set('trust proxy', config.trustProxy);
+
   // Security middleware
   app.use(helmet());
   app.use(cors(config.cors));
