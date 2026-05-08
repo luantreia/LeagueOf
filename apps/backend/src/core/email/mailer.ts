@@ -95,9 +95,10 @@ export class Mailer {
   }
 
   private parseFromAddress(from: string): { name?: string; email: string } {
-    const match = from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+    const normalizedFrom = from.trim().replace(/^["']|["']$/g, '');
+    const match = normalizedFrom.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
     if (!match) {
-      return { email: from.replace(/"/g, '').trim() };
+      return { email: normalizedFrom };
     }
 
     return {
