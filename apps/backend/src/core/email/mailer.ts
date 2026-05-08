@@ -32,10 +32,16 @@ export class Mailer {
     }
 
     if (config.email.brevoApiKey) {
+      logger.info('Sending email via Brevo API');
       await this.sendWithBrevo(payload);
       return;
     }
 
+    if (process.env.RENDER === 'true') {
+      throw new Error('SMTP is not available from this Render service. Configure BREVO_API_KEY to send email over HTTPS.');
+    }
+
+    logger.info('Sending email via SMTP');
     const transportOptions = {
       host: config.email.smtp.host,
       port: config.email.smtp.port,

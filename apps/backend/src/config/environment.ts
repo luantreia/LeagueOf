@@ -23,6 +23,11 @@ const redisUrlCandidate = redisUrlCandidates.find(([, value]) => Boolean(value))
 const redisUrl = redisUrlCandidate?.[1];
 const redisUrlSource = redisUrlCandidate?.[0];
 
+const brevoApiKey =
+  process.env.BREVO_API_KEY ||
+  process.env.brevo_api_key ||
+  process.env.SENDINBLUE_API_KEY;
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.API_PORT || '4000', 10),
@@ -71,7 +76,7 @@ export const config = {
 
   email: {
     from: process.env.MAIL_FROM || 'League Of <no-reply@leagueof.local>',
-    brevoApiKey: process.env.BREVO_API_KEY,
+    brevoApiKey,
     smtp: {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587', 10),
