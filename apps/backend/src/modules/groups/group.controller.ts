@@ -78,4 +78,15 @@ export class GroupController {
       next(error);
     }
   };
+
+  delete = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user!.id;
+      await this.groupService.deleteGroup(groupId, userId);
+      ApiResponse.success(res, { id: groupId }, 'Group deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }

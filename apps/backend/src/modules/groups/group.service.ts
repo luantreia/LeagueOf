@@ -1,4 +1,5 @@
 import { Group, IGroup } from './group.model';
+import { Ranking } from '@/modules/rankings/ranking.model';
 import { AppError } from '@/shared/utils/app-error';
 import mongoose from 'mongoose';
 
@@ -48,7 +49,9 @@ export class GroupService {
       },
     });
 
-    return await group.save();
+    const savedGroup = await group.save();
+    await this.ensureRanking(ownerId, savedGroup);
+    return savedGroup;
   }
 
   async updateGroup(id: string, updateData: any, userId: string): Promise<IGroup> {
@@ -132,7 +135,9 @@ export class GroupService {
 
     group.stats.totalMembers = group.members.length;
 
-    return await group.save();
+    const savedGroup = await group.save();
+    await this.ensureRanking(userId, savedGroup);
+    return savedGroup;
   }
 
   async joinGroupByHandle(handle: string, userId: string): Promise<IGroup> {
@@ -156,6 +161,62 @@ export class GroupService {
 
     group.stats.totalMembers = group.members.length;
 
-    return await group.save();
+    const savedGroup = await group.save();
+    await this.ensureRanking(userId, savedGroup);
+    return savedGroup;
+  }
+
+  async deleteGroup(id: string, userId: string): Promise<void> {
+    const group = await Group.findById(id);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para eliminar este grupo', 403);
+    }
+
+    group.isActive = false;
+    await group.save();
+    await Ranking.updateMany({ group: id }, { isActive: false });
+  }
+
+  private async ensureRanking(userId: string, group: IGroup): Promise<void> {
+    const existingRanking = await Ranking.findOne({ user: userId, group: group._id });
+    if (existingRanking) return;
+
+    const rankingData: any = {
+      user: new mongoose.Types.ObjectId(userId),
+      group: group._id,
+      rankingType: group.rankingConfig.mode,
+      stats: {
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        winRate: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+      },
+    };
+
+    if (group.rankingConfig.mode === 'elo') {
+      const initialRating = group.rankingConfig.eloSettings?.initialRating || 1200;
+      rankingData.elo = {
+        rating: initialRating,
+        peak: initialRating,
+        history: [],
+      };
+    } else {
+      rankingData.points = {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        history: [],
+      };
+    }
+
+    await Ranking.create(rankingData);
   }
 }

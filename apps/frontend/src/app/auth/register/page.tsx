@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { register } from '@/lib/api/auth';
 import { setAuthToken } from '@/lib/api/auth-storage';
+import { useAuth } from '@/lib/auth-context';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { authenticate } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
@@ -46,15 +48,12 @@ export default function RegisterPage() {
       
       // Store token
       setAuthToken(response.accessToken);
-      
-      // Save full user
-      localStorage.setItem('user', JSON.stringify(response.user));
+      authenticate(response.user);
       
       toast.success('¡Registro exitoso! Iniciando sesión...');
       
       // Redirect to home or onboarding
       router.push('/');
-      router.refresh();
     } catch (error: any) {
       const message = error.response?.data?.message || 'Error al registrarse';
       toast.error(message);

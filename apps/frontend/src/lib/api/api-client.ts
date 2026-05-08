@@ -108,6 +108,11 @@ export class ApiClient {
     return response.data;
   }
 
+  async deleteGroup(id: string) {
+    const response = await this.client.delete(`/api/groups/${id}`);
+    return response.data;
+  }
+
   async joinGroup(id: string) {
     const response = await this.client.post(`/api/groups/${id}/join`);
     return response.data;
@@ -121,6 +126,13 @@ export class ApiClient {
   // Rankings
   async getLeaderboard(groupId: string, page = 1, limit = 50) {
     const response = await this.client.get(`/api/rankings/group/${groupId}`, {
+      params: { page, limit },
+    });
+    return response.data;
+  }
+
+  async getGlobalLeaderboard(page = 1, limit = 100) {
+    const response = await this.client.get('/api/rankings/global', {
       params: { page, limit },
     });
     return response.data;

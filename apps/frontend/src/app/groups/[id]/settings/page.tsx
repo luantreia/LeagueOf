@@ -59,6 +59,20 @@ export default function GroupSettingsPage() {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.deleteGroup(id as string),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.removeQueries({ queryKey: ['group', id] });
+      toast.success('Grupo eliminado');
+      router.push('/groups');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al eliminar el grupo';
+      toast.error(msg);
+    },
+  });
+
   useEffect(() => {
     if (response?.data) {
         const group = response.data;
@@ -99,6 +113,12 @@ export default function GroupSettingsPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateMutation.mutate(formData);
+  };
+
+  const handleDelete = () => {
+    const confirmed = window.confirm(`Eliminar "${group.name}"? Esta accion no se puede deshacer.`);
+    if (!confirmed) return;
+    deleteMutation.mutate();
   };
 
   return (
@@ -147,9 +167,14 @@ export default function GroupSettingsPage() {
             <span>Ajustes de Ranking</span>
           </div>
           <div className="pt-6 mt-6 border-t border-zinc-900">
-             <button className="w-full p-4 text-red-500/70 hover:bg-red-500/10 hover:text-red-500 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider">
+             <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              className="w-full p-4 text-red-500/70 hover:bg-red-500/10 hover:text-red-500 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider disabled:opacity-50 disabled:cursor-wait"
+            >
               <TrashIcon className="w-5 h-5" />
-              <span>Eliminar Grupo</span>
+              <span>{deleteMutation.isPending ? 'Eliminando...' : 'Eliminar Grupo'}</span>
             </button>
           </div>
         </div>

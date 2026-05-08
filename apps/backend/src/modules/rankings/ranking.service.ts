@@ -278,18 +278,13 @@ export class RankingService {
     page: number = 1,
     limit: number = 50
   ): Promise<{ rankings: IRanking[]; total: number }> {
-    // Try cache first
-    const cacheKey = `leaderboard:${groupId}:${page}:${limit}`;
-    const cached = await this.redis.get<{ rankings: IRanking[]; total: number }>(cacheKey);
-    
-    if (cached) {
-      return cached;
-    }
-
     const group = await Group.findById(groupId);
     if (!group) {
       throw new AppError('Group not found', 404);
     }
+    await this.ensureGroupRankingsForMembers(group);
+
+    const cacheKey = `leaderboard:${groupId}:${page}:${limit}`;
 
     const sortField = group.rankingConfig.mode === 'elo' ? 'elo.rating' : 'points.total';
 
@@ -313,6 +308,80 @@ export class RankingService {
     await this.redis.set(cacheKey, result, 300);
 
     return result;
+  }
+
+  async getGlobalLeaderboard(
+    page: number = 1,
+    limit: number = 100
+  ): Promise<{ rankings: IRanking[]; total: number }> {
+    const groups = await Group.find({ isActive: true });
+    for (const group of groups) {
+      await this.ensureGroupRankingsForMembers(group);
+    }
+
+    const rankings = await Ranking.find({ isActive: true })
+      .populate('user', 'username displayName avatar')
+      .populate('group', 'name handle rankingConfig')
+      .lean();
+
+    const sortedRankings = rankings
+      .sort((a: any, b: any) => {
+        const aScore = a.rankingType === 'elo' ? a.elo?.rating || 0 : a.points?.total || 0;
+        const bScore = b.rankingType === 'elo' ? b.elo?.rating || 0 : b.points?.total || 0;
+        return bScore - aScore;
+      });
+
+    const start = (page - 1) * limit;
+    const paginatedRankings = sortedRankings.slice(start, start + limit).map((ranking, index) => ({
+      ...ranking,
+      rank: start + index + 1,
+    }));
+
+    return { rankings: paginatedRankings as unknown as IRanking[], total: sortedRankings.length };
+  }
+
+  private async ensureGroupRankingsForMembers(group: any): Promise<void> {
+    for (const member of group.members || []) {
+      const userId = member.user?.toString();
+      if (!userId) continue;
+
+      const existingRanking = await Ranking.findOne({ user: userId, group: group._id });
+      if (existingRanking) continue;
+
+      const rankingData: any = {
+        user: member.user,
+        group: group._id,
+        rankingType: group.rankingConfig.mode,
+        stats: {
+          matchesPlayed: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          winRate: 0,
+          currentStreak: 0,
+          bestStreak: 0,
+        },
+      };
+
+      if (group.rankingConfig.mode === 'elo') {
+        const initialRating = group.rankingConfig.eloSettings?.initialRating || 1200;
+        rankingData.elo = {
+          rating: initialRating,
+          peak: initialRating,
+          history: [],
+        };
+      } else {
+        rankingData.points = {
+          total: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          history: [],
+        };
+      }
+
+      await Ranking.create(rankingData);
+    }
   }
 
   /**

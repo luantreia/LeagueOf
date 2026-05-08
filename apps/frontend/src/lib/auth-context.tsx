@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  authenticate: (user: User) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -15,6 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
+  authenticate: () => {},
   logout: () => {},
   refreshUser: async () => {},
 });
@@ -48,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchUser();
   }, []);
 
+  const authenticate = (userData: User) => {
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    setIsLoading(false);
+  };
+
   const logout = () => {
     removeAuthToken();
     localStorage.removeItem('user');
@@ -56,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, logout, refreshUser: fetchUser }}>
+    <AuthContext.Provider value={{ user, isLoading, authenticate, logout, refreshUser: fetchUser }}>
       {children}
     </AuthContext.Provider>
   );

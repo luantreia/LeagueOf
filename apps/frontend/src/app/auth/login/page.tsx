@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { login } from '@/lib/api/auth';
 import { setAuthToken } from '@/lib/api/auth-storage';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { authenticate } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -32,15 +34,12 @@ export default function LoginPage() {
       
       // Store token
       setAuthToken(response.accessToken);
-      
-      // Save full user in local storage for quick access (optional)
-      localStorage.setItem('user', JSON.stringify(response.user));
+      authenticate(response.user);
       
       toast.success('¡Bienvenido de nuevo!');
       
       // Redirect to home or dashboard
       router.push('/');
-      router.refresh();
     } catch (error: any) {
       const message = error.response?.data?.message || 'Error al iniciar sesión';
       toast.error(message);

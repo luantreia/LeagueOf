@@ -5,6 +5,20 @@ import { RankingService } from './ranking.service';
 const router = Router();
 const rankingService = new RankingService();
 
+router.get('/global', authenticate, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 100 } = req.query;
+    const result = await rankingService.getGlobalLeaderboard(
+      Number(page),
+      Number(limit)
+    );
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/group/:groupId', authenticate, async (req, res, next) => {
   try {
     const { groupId } = req.params;
