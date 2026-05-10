@@ -6,7 +6,8 @@ import { apiClient } from '@/lib/api/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
-type FilterMode = 'group' | 'game' | 'player' | 'synergy';
+type FilterMode = 'group' | 'game' | 'player';
+type PlayerRelationFilter = 'all' | 'synergy' | 'rivalry';
 
 const getScore = (ranking: any) => {
   if (ranking.rankingType === 'elo') {
@@ -78,6 +79,8 @@ export default function RankingsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [selectedGameType, setSelectedGameType] = useState('');
   const [selectedPlayerKey, setSelectedPlayerKey] = useState('');
+  const [playerRelation, setPlayerRelation] = useState<PlayerRelationFilter>('all');
+  const [groupSearch, setGroupSearch] = useState('');
 
   const { data: groupsResponse, isLoading: isLoadingGroups } = useQuery({
     queryKey: ['groups', 'rankings-filter'],
@@ -85,6 +88,15 @@ export default function RankingsPage() {
   });
 
   const groups = useMemo(() => groupsResponse?.data || [], [groupsResponse]);
+  const filteredGroups = useMemo(() => {
+    const search = groupSearch.trim().toLowerCase();
+    if (!search) return groups;
+
+    return groups.filter((group: any) =>
+      group.name?.toLowerCase().includes(search)
+      || group.handle?.toLowerCase().includes(search)
+    );
+  }, [groups, groupSearch]);
   const activeGroupId = selectedGroupId || groups[0]?._id || '';
 
   useEffect(() => {
@@ -181,52 +193,31 @@ export default function RankingsPage() {
 
         if (userTeamIndex < 0 || playerTeamIndex < 0) return null;
 
+        const relation = userTeamIndex === playerTeamIndex ? 'Mismo equipo' : 'Rival';
+
         return {
           _id: match._id,
           name: match.name,
           groupName: match.group?.name || 'Grupo',
           gameType: match.gameType,
           date: match.completedAt || match.createdAt,
-          relation: userTeamIndex === playerTeamIndex ? 'Mismo equipo' : 'Rival',
+          relation,
           result: getResultForTeam(match, userTeamIndex),
         };
       })
-      .filter(Boolean);
-  }, [matches, selectedPlayerKey, user?._id]);
-
-  const synergyRankings = useMemo(() => {
-    if (!user?._id) return [];
-    const synergyMap = new Map<string, any>();
-
-    matches.forEach((match) => {
-      const userTeamIndex = getUserTeamIndex(match, user._id);
-      if (userTeamIndex < 0) return;
-
-      const team = match.teams?.[userTeamIndex];
-      const result = getResultForTeam(match, userTeamIndex);
-
-      team?.players?.forEach((player: any) => {
-        const key = getPlayerKey(player);
-        if (!key || key === `user:${user._id}`) return;
-        if (!synergyMap.has(key)) {
-          synergyMap.set(key, createAggregateEntry(key, player, 'Mismo equipo'));
-        }
-        updateStats(synergyMap.get(key), result);
+      .filter(Boolean)
+      .filter((match: any) => {
+        if (playerRelation === 'synergy') return match.relation === 'Mismo equipo';
+        if (playerRelation === 'rivalry') return match.relation === 'Rival';
+        return true;
       });
-    });
-
-    return Array.from(synergyMap.values())
-      .sort((a, b) => b.points.total - a.points.total || b.stats.matchesPlayed - a.stats.matchesPlayed)
-      .map((ranking, index) => ({ ...ranking, rank: index + 1 }));
-  }, [matches, user?._id]);
+  }, [matches, playerRelation, selectedPlayerKey, user?._id]);
 
   const rankings = filterMode === 'group'
     ? leaderboardResponse?.rankings || []
     : filterMode === 'game'
       ? gameRankings
-      : filterMode === 'synergy'
-        ? synergyRankings
-        : [];
+      : [];
 
   const selectedPlayer = playerOptions.find((player) => player.key === selectedPlayerKey);
   const isLoading = isLoadingGroups || (filterMode === 'group' ? isLoadingLeaderboard : isLoadingMatches);
@@ -236,7 +227,7 @@ export default function RankingsPage() {
       ? `Ranking global de ${selectedGameType || 'juego'}`
       : filterMode === 'player'
         ? `Historial con ${selectedPlayer?.name || 'jugador'}`
-        : 'Sinergia de equipo';
+        : 'Ranking';
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -256,7 +247,6 @@ export default function RankingsPage() {
                 ['group', 'Filtrar por grupo'],
                 ['game', 'Filtrar por juego'],
                 ['player', 'Filtrar por jugador'],
-                ['synergy', 'Filtrar por sinergia'],
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -277,8 +267,14 @@ export default function RankingsPage() {
           {filterMode === 'group' && (
             <section>
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Grupo</h3>
+              <input
+                value={groupSearch}
+                onChange={(event) => setGroupSearch(event.target.value)}
+                placeholder="Buscar grupo"
+                className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200 mb-3"
+              />
               <div className="space-y-2">
-                {groups.map((group: any) => (
+                {filteredGroups.map((group: any) => (
                   <button
                     key={group._id}
                     type="button"
@@ -295,6 +291,11 @@ export default function RankingsPage() {
                 {!isLoadingGroups && groups.length === 0 && (
                   <p className="px-4 py-3 text-sm text-gray-500 border border-dashed border-gray-800 rounded-lg">
                     Todavia no perteneces a grupos.
+                  </p>
+                )}
+                {!isLoadingGroups && groups.length > 0 && filteredGroups.length === 0 && (
+                  <p className="px-4 py-3 text-sm text-gray-500 border border-dashed border-gray-800 rounded-lg">
+                    No hay grupos que coincidan con la busqueda.
                   </p>
                 )}
               </div>
@@ -319,7 +320,7 @@ export default function RankingsPage() {
           )}
 
           {filterMode === 'player' && (
-            <section>
+            <section className="space-y-4">
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Jugador</h3>
               <select
                 value={selectedPlayerKey}
@@ -332,6 +333,18 @@ export default function RankingsPage() {
                   </option>
                 ))}
               </select>
+              <div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Tipo</h3>
+                <select
+                  value={playerRelation}
+                  onChange={(event) => setPlayerRelation(event.target.value as PlayerRelationFilter)}
+                  className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
+                >
+                  <option value="all">Todas</option>
+                  <option value="synergy">Sinergia</option>
+                  <option value="rivalry">Rivalidad</option>
+                </select>
+              </div>
             </section>
           )}
         </aside>
