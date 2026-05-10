@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
@@ -320,9 +320,18 @@ export default function GroupLobbyPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
-                Tipo de juego
-              </label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                  Tipo de juego
+                </label>
+                <Link
+                  href={`/groups/${id}/settings?section=games`}
+                  className="text-[10px] text-blue-400 hover:text-blue-300 font-black uppercase tracking-wider flex items-center gap-1"
+                >
+                  <PlusIcon className="w-3 h-3" />
+                  Configurar juegos
+                </Link>
+              </div>
               <select
                 value={gameType}
                 onChange={(e) => setGameType(e.target.value)}

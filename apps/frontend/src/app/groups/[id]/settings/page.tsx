@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api/api-client';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -230,6 +230,20 @@ export default function GroupSettingsPage() {
         }
     }
   }, [response]);
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section === 'games') {
+      setActiveSection('games');
+    } else if (section === 'members') {
+      setActiveSection('members');
+    } else if (section === 'ranking') {
+      setActiveSection('ranking');
+    } else if (section === 'profile') {
+      setActiveSection('profile');
+    }
+  }, [searchParams]);
 
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-screen">
