@@ -441,11 +441,26 @@ export default function GroupLobbyPage() {
                     {allPlayers
                       .filter((player: any) => teamAssignments[player.id] === teamIndex)
                       .map((player: any) => (
-                        <div key={player.id} className="flex items-center justify-between text-sm bg-zinc-800 rounded px-3 py-2">
-                          <span className="text-zinc-100">{player.name}</span>
+                        <div key={player.id} className="flex items-center justify-between text-sm bg-zinc-800 rounded px-3 py-2 gap-2">
+                          <span className="text-zinc-100 flex-1">{player.name}</span>
                           <span className="text-[10px] text-zinc-600">
                             {player.type === 'guest' ? '(Invitado)' : '(Miembro)'}
                           </span>
+                          <select
+                            value={teamAssignments[player.id]}
+                            onChange={(e) => {
+                              const newAssignments = { ...teamAssignments };
+                              newAssignments[player.id] = parseInt(e.target.value);
+                              setTeamAssignments(newAssignments);
+                            }}
+                            className="text-xs bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-300"
+                          >
+                            {Array.from({ length: teamCount }, (_, i) => (
+                              <option key={i} value={i}>
+                                {teamNames[i] || `Equipo ${i + 1}`}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       ))}
                   </div>
