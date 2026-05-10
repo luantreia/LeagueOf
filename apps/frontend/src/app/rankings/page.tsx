@@ -6,7 +6,7 @@ import { apiClient } from '@/lib/api/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
-type FilterMode = 'group' | 'game' | 'player';
+type FilterMode = 'group' | 'global';
 type PlayerRelationFilter = 'all' | 'synergy' | 'rivalry';
 
 const getScore = (ranking: any) => {
@@ -130,12 +130,6 @@ export default function RankingsPage() {
     return Array.from(new Set<string>(types)).sort();
   }, [matches]);
 
-  useEffect(() => {
-    if (!selectedGameType && gameTypes.length > 0) {
-      setSelectedGameType(gameTypes[0]);
-    }
-  }, [gameTypes, selectedGameType]);
-
   const playerOptions = useMemo(() => {
     const players = new Map<string, { key: string; name: string }>();
     matches.forEach((match) => {
@@ -150,18 +144,11 @@ export default function RankingsPage() {
     return Array.from(players.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [matches, user?._id]);
 
-  useEffect(() => {
-    if (!selectedPlayerKey && playerOptions.length > 0) {
-      setSelectedPlayerKey(playerOptions[0].key);
-    }
-  }, [playerOptions, selectedPlayerKey]);
-
   const gameRankings = useMemo(() => {
-    if (!selectedGameType) return [];
     const rankingMap = new Map<string, any>();
 
     matches
-      .filter((match) => match.gameType === selectedGameType)
+      .filter((match) => !selectedGameType || match.gameType === selectedGameType)
       .forEach((match) => {
         match.teams?.forEach((team: any, teamIndex: number) => {
           const result = getResultForTeam(match, teamIndex);
@@ -185,6 +172,7 @@ export default function RankingsPage() {
     if (!selectedPlayerKey || !user?._id) return [];
 
     return matches
+      .filter((match) => !selectedGameType || match.gameType === selectedGameType)
       .map((match) => {
         const userTeamIndex = getUserTeamIndex(match, user._id);
         const playerTeamIndex = match.teams?.findIndex((team: any) =>
@@ -211,30 +199,27 @@ export default function RankingsPage() {
         if (playerRelation === 'rivalry') return match.relation === 'Rival';
         return true;
       });
-  }, [matches, playerRelation, selectedPlayerKey, user?._id]);
+  }, [matches, playerRelation, selectedGameType, selectedPlayerKey, user?._id]);
 
   const rankings = filterMode === 'group'
     ? leaderboardResponse?.rankings || []
-    : filterMode === 'game'
-      ? gameRankings
-      : [];
+    : gameRankings;
 
   const selectedPlayer = playerOptions.find((player) => player.key === selectedPlayerKey);
   const isLoading = isLoadingGroups || (filterMode === 'group' ? isLoadingLeaderboard : isLoadingMatches);
+  const showPlayerHistory = filterMode === 'global' && !!selectedPlayerKey;
   const title = filterMode === 'group'
     ? selectedGroup?.name || 'Ranking del Grupo'
-    : filterMode === 'game'
-      ? `Ranking global de ${selectedGameType || 'juego'}`
-      : filterMode === 'player'
-        ? `Historial con ${selectedPlayer?.name || 'jugador'}`
-        : 'Ranking';
+    : selectedPlayerKey
+      ? `Historial con ${selectedPlayer?.name || 'jugador'}${selectedGameType ? ` en ${selectedGameType}` : ''}`
+      : `Ranking global${selectedGameType ? ` de ${selectedGameType}` : ''}`;
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Rankings</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Rankings por grupo y filtros globales por juego, jugador o sinergia en todos tus grupos.
+          Rankings por grupo y filtros globales combinables por juego, jugador, sinergia o rivalidad.
         </p>
       </div>
 
@@ -245,8 +230,7 @@ export default function RankingsPage() {
             <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
               {[
                 ['group', 'Filtrar por grupo'],
-                ['game', 'Filtrar por juego'],
-                ['player', 'Filtrar por jugador'],
+                ['global', 'Filtros globales'],
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -302,42 +286,44 @@ export default function RankingsPage() {
             </section>
           )}
 
-          {filterMode === 'game' && (
-            <section>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Juego</h3>
-              <select
-                value={selectedGameType}
-                onChange={(event) => setSelectedGameType(event.target.value)}
-                className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
-              >
-                {gameTypes.map((gameType) => (
-                  <option key={gameType} value={gameType}>
-                    {gameType}
-                  </option>
-                ))}
-              </select>
-            </section>
-          )}
-
-          {filterMode === 'player' && (
+          {filterMode === 'global' && (
             <section className="space-y-4">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Jugador</h3>
-              <select
-                value={selectedPlayerKey}
-                onChange={(event) => setSelectedPlayerKey(event.target.value)}
-                className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
-              >
-                {playerOptions.map((player) => (
-                  <option key={player.key} value={player.key}>
-                    {player.name}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Juego</h3>
+                <select
+                  value={selectedGameType}
+                  onChange={(event) => setSelectedGameType(event.target.value)}
+                  className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
+                >
+                  <option value="">Todos los juegos</option>
+                  {gameTypes.map((gameType) => (
+                    <option key={gameType} value={gameType}>
+                      {gameType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Jugador</h3>
+                <select
+                  value={selectedPlayerKey}
+                  onChange={(event) => setSelectedPlayerKey(event.target.value)}
+                  className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
+                >
+                  <option value="">Todos los jugadores</option>
+                  {playerOptions.map((player) => (
+                    <option key={player.key} value={player.key}>
+                      {player.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Tipo</h3>
                 <select
                   value={playerRelation}
                   onChange={(event) => setPlayerRelation(event.target.value as PlayerRelationFilter)}
+                  disabled={!selectedPlayerKey}
                   className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
                 >
                   <option value="all">Todas</option>
@@ -355,14 +341,14 @@ export default function RankingsPage() {
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <CardTitle>{title}</CardTitle>
                 <div className="text-xs text-gray-500 font-medium">
-                  {filterMode === 'player'
+                  {showPlayerHistory
                     ? `${playerHistory.length} partidas`
                     : `${rankings.length} registros`}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {filterMode === 'player' ? (
+              {showPlayerHistory ? (
                 <HistoryTable history={playerHistory} isLoading={isLoading} />
               ) : (
                 <RankingTable rankings={rankings} selectedGroup={selectedGroup} isLoading={isLoading} />
