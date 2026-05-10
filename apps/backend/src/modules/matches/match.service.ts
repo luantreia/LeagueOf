@@ -23,6 +23,10 @@ export class MatchService {
       query.status = params.status;
     }
 
+    if (params.isRanked !== undefined) {
+      query.isRanked = params.isRanked === true || params.isRanked === 'true';
+    }
+
     if (params.gameType) {
       query.gameType = new RegExp(params.gameType, 'i');
     }

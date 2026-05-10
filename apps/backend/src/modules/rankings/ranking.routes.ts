@@ -8,12 +8,13 @@ const rankingService = new RankingService();
 router.get('/group/:groupId', authenticate, async (req, res, next) => {
   try {
     const { groupId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 50, gameType } = req.query;
     
     const result = await rankingService.getLeaderboard(
       groupId,
       Number(page),
-      Number(limit)
+      Number(limit),
+      typeof gameType === 'string' ? gameType : undefined
     );
     
     res.json(result);

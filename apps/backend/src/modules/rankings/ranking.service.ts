@@ -373,12 +373,19 @@ export class RankingService {
   async getLeaderboard(
     groupId: string,
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
+    gameType?: string
   ): Promise<{ rankings: IRanking[]; total: number }> {
     const group = await Group.findById(groupId);
     if (!group) {
       throw new AppError('Group not found', 404);
     }
+
+    const normalizedGameType = gameType?.trim();
+    if (normalizedGameType) {
+      return this.getGameLeaderboard(group, page, limit, normalizedGameType);
+    }
+
     await this.ensureGroupRankingsForMembers(group);
 
     const cacheKey = `leaderboard:${groupId}:${page}:${limit}`;
@@ -406,6 +413,211 @@ export class RankingService {
     await this.redis.set(cacheKey, result, 300);
 
     return result;
+  }
+
+  private async getGameLeaderboard(
+    group: any,
+    page: number,
+    limit: number,
+    gameType: string
+  ): Promise<{ rankings: IRanking[]; total: number }> {
+    const initialRating = group.rankingConfig.eloSettings?.initialRating || 1200;
+    const rankingType = group.rankingConfig.mode;
+    const gameTypeRegex = new RegExp(`^${this.escapeRegExp(gameType)}$`, 'i');
+    const matches = await Match.find({
+      group: group._id,
+      status: 'completed',
+      isRanked: true,
+      gameType: gameTypeRegex,
+    })
+      .sort({ completedAt: 1, createdAt: 1 })
+      .populate('teams.players.user', 'username displayName avatar')
+      .populate('teams.players.guest', 'name email')
+      .lean();
+
+    const rankingMap = new Map<string, any>();
+
+    for (const match of matches as any[]) {
+      const ratingSnapshot = new Map(
+        Array.from(rankingMap.entries()).map(([key, ranking]) => [
+          key,
+          ranking.elo?.rating ?? initialRating,
+        ])
+      );
+
+      for (let teamIndex = 0; teamIndex < match.teams.length; teamIndex++) {
+        const team = match.teams[teamIndex];
+        const isWinner = match.winner === teamIndex;
+        const isDraw = match.winner === undefined || match.winner === null;
+
+        for (const player of team.players || []) {
+          const ranking = this.getOrCreateGameRanking(rankingMap, player, group, match);
+          if (!ranking) continue;
+
+          if (rankingType === 'elo') {
+            const currentRating = ratingSnapshot.get(ranking._id) ?? initialRating;
+            const opponentRatings = this.getGameOpponentRatings(
+              match,
+              teamIndex,
+              ratingSnapshot,
+              rankingMap,
+              group,
+              initialRating
+            );
+            const avgOpponentRating = opponentRatings.length
+              ? opponentRatings.reduce((sum, rating) => sum + rating, 0) / opponentRatings.length
+              : initialRating;
+            const expectedScore = 1 / (1 + Math.pow(10, (avgOpponentRating - currentRating) / 400));
+            const actualScore = isWinner ? 1 : isDraw ? 0.5 : 0;
+            const ratingChange = Math.round((group.rankingConfig.eloSettings?.kFactor || 32) * (actualScore - expectedScore));
+            const newRating = Math.max(
+              group.rankingConfig.eloSettings?.minRating || 0,
+              Math.min(group.rankingConfig.eloSettings?.maxRating || 3000, currentRating + ratingChange)
+            );
+
+            ranking.elo.rating = newRating;
+            ranking.elo.peak = Math.max(ranking.elo.peak, newRating);
+          } else {
+            const pointsConfig = group.rankingConfig.pointsSettings;
+            let pointsEarned = isWinner
+              ? pointsConfig?.winPoints || 3
+              : isDraw
+                ? pointsConfig?.drawPoints || 1
+                : pointsConfig?.lossPoints || -1;
+
+            if (player.stats) {
+              if (player.stats.kills && pointsConfig?.killPoints) {
+                pointsEarned += player.stats.kills * pointsConfig.killPoints;
+              }
+              if (player.stats.deaths && pointsConfig?.deathPoints) {
+                pointsEarned += player.stats.deaths * pointsConfig.deathPoints;
+              }
+              if (player.stats.assists && pointsConfig?.assistPoints) {
+                pointsEarned += player.stats.assists * pointsConfig.assistPoints;
+              }
+            }
+
+            ranking.points.total += pointsEarned;
+            if (isWinner) ranking.points.wins += 1;
+            else if (isDraw) ranking.points.draws += 1;
+            else ranking.points.losses += 1;
+          }
+
+          this.updateRankingStatsData(ranking.stats, isWinner ? 'win' : isDraw ? 'draw' : 'loss');
+          ranking.stats.lastMatchDate = match.completedAt || match.updatedAt || match.createdAt;
+        }
+      }
+    }
+
+    const sortField = rankingType === 'elo' ? 'elo' : 'points';
+    const rankings = Array.from(rankingMap.values())
+      .sort((a, b) => {
+        const scoreA = sortField === 'elo' ? a.elo.rating : a.points.total;
+        const scoreB = sortField === 'elo' ? b.elo.rating : b.points.total;
+        return scoreB - scoreA;
+      })
+      .map((ranking, index) => ({ ...ranking, rank: index + 1 }));
+
+    const total = rankings.length;
+    const paginatedRankings = rankings.slice((page - 1) * limit, page * limit);
+
+    return {
+      rankings: paginatedRankings as unknown as IRanking[],
+      total,
+    };
+  }
+
+  private getOrCreateGameRanking(rankingMap: Map<string, any>, player: any, group: any, match: any): any | null {
+    const user = player.user;
+    const guest = player.guest;
+    const userId = user?._id?.toString() || user?.toString();
+    const guestId = guest?._id?.toString() || guest?.toString();
+    const key = userId ? `user:${userId}` : guestId ? `guest:${guestId}` : null;
+    if (!key) return null;
+
+    const existingRanking = rankingMap.get(key);
+    if (existingRanking) return existingRanking;
+
+    const initialRating = group.rankingConfig.eloSettings?.initialRating || 1200;
+    const ranking = {
+      _id: key,
+      user: userId ? user : undefined,
+      guest: guestId ? guest : undefined,
+      group: group._id,
+      rankingType: group.rankingConfig.mode,
+      createdAt: match.completedAt || match.createdAt,
+      updatedAt: match.completedAt || match.updatedAt || match.createdAt,
+      isActive: true,
+      stats: {
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        winRate: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+      },
+      elo: {
+        rating: initialRating,
+        peak: initialRating,
+        history: [],
+      },
+      points: {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        history: [],
+      },
+    };
+
+    rankingMap.set(key, ranking);
+    return ranking;
+  }
+
+  private getGameOpponentRatings(
+    match: any,
+    teamIndex: number,
+    ratingSnapshot: Map<string, number>,
+    rankingMap: Map<string, any>,
+    group: any,
+    initialRating: number
+  ): number[] {
+    const ratings: number[] = [];
+
+    for (let index = 0; index < match.teams.length; index++) {
+      if (index === teamIndex) continue;
+
+      for (const player of match.teams[index].players || []) {
+        const ranking = this.getOrCreateGameRanking(rankingMap, player, group, match);
+        if (!ranking) continue;
+        ratings.push(ratingSnapshot.get(ranking._id) ?? initialRating);
+      }
+    }
+
+    return ratings;
+  }
+
+  private updateRankingStatsData(stats: any, result: 'win' | 'loss' | 'draw'): void {
+    stats.matchesPlayed += 1;
+
+    if (result === 'win') {
+      stats.wins += 1;
+      stats.currentStreak = stats.currentStreak >= 0 ? stats.currentStreak + 1 : 1;
+    } else if (result === 'loss') {
+      stats.losses += 1;
+      stats.currentStreak = stats.currentStreak <= 0 ? stats.currentStreak - 1 : -1;
+    } else {
+      stats.draws += 1;
+      stats.currentStreak = 0;
+    }
+
+    stats.bestStreak = Math.max(stats.bestStreak, Math.abs(stats.currentStreak));
+    stats.winRate = stats.matchesPlayed > 0 ? (stats.wins / stats.matchesPlayed) * 100 : 0;
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private async ensureGroupRankingsForMembers(group: any): Promise<void> {

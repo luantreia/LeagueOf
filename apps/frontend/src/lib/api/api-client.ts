@@ -168,9 +168,9 @@ export class ApiClient {
   }
 
   // Rankings
-  async getLeaderboard(groupId: string, page = 1, limit = 50) {
+  async getLeaderboard(groupId: string, page = 1, limit = 50, gameType?: string) {
     const response = await this.client.get(`/api/rankings/group/${groupId}`, {
-      params: { page, limit },
+      params: { page, limit, gameType },
     });
     return response.data;
   }

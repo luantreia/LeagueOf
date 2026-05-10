@@ -14,11 +14,12 @@ const getScore = (ranking: any) => {
 };
 
 const getPlayerName = (ranking: any) => {
-  return ranking.user?.displayName || ranking.user?.username || 'Jugador';
+  return ranking.user?.displayName || ranking.user?.username || ranking.guest?.name || 'Jugador';
 };
 
 export default function RankingsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [selectedGameType, setSelectedGameType] = useState('');
 
   const { data: groupsResponse, isLoading: isLoadingGroups } = useQuery({
     queryKey: ['groups', 'rankings-filter'],
@@ -35,12 +36,28 @@ export default function RankingsPage() {
   }, [groups, selectedGroupId]);
 
   const { data: leaderboardResponse, isLoading: isLoadingLeaderboard } = useQuery({
-    queryKey: ['rankings', activeGroupId],
-    queryFn: () => apiClient.getLeaderboard(activeGroupId, 1, 100),
+    queryKey: ['rankings', activeGroupId, selectedGameType],
+    queryFn: () => apiClient.getLeaderboard(activeGroupId, 1, 100, selectedGameType || undefined),
+    enabled: !!activeGroupId,
+  });
+
+  const { data: matchesResponse } = useQuery({
+    queryKey: ['matches', 'group', activeGroupId, 'ranking-games'],
+    queryFn: () => apiClient.getMatches({ groupId: activeGroupId, status: 'completed', isRanked: true, limit: 500 }),
     enabled: !!activeGroupId,
   });
 
   const rankings = leaderboardResponse?.rankings || [];
+  const gameTypes = useMemo<string[]>(() => {
+    const matches: any[] = matchesResponse?.data || [];
+    const types = matches.reduce<string[]>((values: string[], match: any) => {
+      if (typeof match.gameType === 'string' && match.gameType.length > 0) {
+        values.push(match.gameType);
+      }
+      return values;
+    }, []);
+    return Array.from(new Set<string>(types)).sort();
+  }, [matchesResponse]);
   const selectedGroup = useMemo(
     () => groups.find((group: any) => group._id === activeGroupId),
     [groups, activeGroupId]
@@ -65,7 +82,10 @@ export default function RankingsPage() {
                 <button
                   key={group._id}
                   type="button"
-                  onClick={() => setSelectedGroupId(group._id)}
+                  onClick={() => {
+                    setSelectedGroupId(group._id);
+                    setSelectedGameType('');
+                  }}
                   className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
                     activeGroupId === group._id
                       ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold'
@@ -87,12 +107,26 @@ export default function RankingsPage() {
         <main className="md:col-span-3">
           <Card>
             <CardHeader className="border-b border-gray-100 dark:border-gray-800">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <CardTitle>
                   {selectedGroup?.name || 'Ranking del Grupo'}
                 </CardTitle>
-                <div className="text-xs text-gray-500 font-medium">
-                  {leaderboardResponse?.total ?? 0} registros reales
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <select
+                    value={selectedGameType}
+                    onChange={(event) => setSelectedGameType(event.target.value)}
+                    className="h-10 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
+                  >
+                    <option value="">Ranking general</option>
+                    {gameTypes.map((gameType: string) => (
+                      <option key={gameType} value={gameType}>
+                        {gameType}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-xs text-gray-500 font-medium">
+                    {leaderboardResponse?.total ?? 0} registros reales
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -120,7 +154,9 @@ export default function RankingsPage() {
                     {!isLoading && rankings.length === 0 && (
                       <tr>
                         <td className="px-6 py-10 text-gray-500" colSpan={6}>
-                          No hay rankings todavia. Se crean cuando alguien crea o se une a un grupo, y se actualizan con partidas.
+                          {selectedGameType
+                            ? `No hay partidas rankeadas de ${selectedGameType} para este grupo.`
+                            : 'No hay rankings todavia. Se crean cuando alguien crea o se une a un grupo, y se actualizan con partidas.'}
                         </td>
                       </tr>
                     )}

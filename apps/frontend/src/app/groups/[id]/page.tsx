@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/api-client';
@@ -26,6 +27,7 @@ export default function GroupDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [selectedGameType, setSelectedGameType] = useState('');
 
   const { data: response, isLoading, error } = useQuery({
     queryKey: ['group', id],
@@ -34,8 +36,14 @@ export default function GroupDetailPage() {
   });
 
   const { data: leaderboardResponse } = useQuery({
-    queryKey: ['leaderboard', id],
-    queryFn: () => apiClient.getLeaderboard(id as string),
+    queryKey: ['leaderboard', id, selectedGameType],
+    queryFn: () => apiClient.getLeaderboard(id as string, 1, 50, selectedGameType || undefined),
+    enabled: !!id,
+  });
+
+  const { data: matchesResponse } = useQuery({
+    queryKey: ['matches', 'group', id, 'ranking-games'],
+    queryFn: () => apiClient.getMatches({ groupId: id, status: 'completed', isRanked: true, limit: 500 }),
     enabled: !!id,
   });
 
@@ -44,6 +52,17 @@ export default function GroupDetailPage() {
     queryFn: () => apiClient.getGuestsByGroup(id as string),
     enabled: !!id,
   });
+
+  const gameTypes = useMemo<string[]>(() => {
+    const matches: any[] = matchesResponse?.data || [];
+    const types = matches.reduce<string[]>((values: string[], match: any) => {
+      if (typeof match.gameType === 'string' && match.gameType.length > 0) {
+        values.push(match.gameType);
+      }
+      return values;
+    }, []);
+    return Array.from(new Set<string>(types)).sort();
+  }, [matchesResponse]);
 
   const joinMutation = useMutation({
     mutationFn: () => apiClient.joinGroup(id as string),
@@ -167,8 +186,22 @@ export default function GroupDetailPage() {
                 <div className="h-8 w-1.5 bg-yellow-500 rounded-full shadow-lg shadow-yellow-500/50" />
                 <h2 className="text-3xl font-black text-zinc-50 italic tracking-tight uppercase">Leaderboard</h2>
              </div>
-             <div className="bg-zinc-900 border border-zinc-800 rounded-full px-5 py-2 text-[10px] font-black text-zinc-500 tracking-[0.1em] shadow-inner">
-               SISTEMA: <span className="text-blue-400 font-mono italic">{group.rankingConfig?.mode?.toUpperCase() || 'ELO'}</span>
+             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+               <select
+                 value={selectedGameType}
+                 onChange={(event) => setSelectedGameType(event.target.value)}
+                 className="h-10 bg-zinc-950 border border-zinc-800 rounded-xl px-3 text-xs font-bold text-zinc-200"
+               >
+                 <option value="">Ranking general</option>
+                 {gameTypes.map((gameType: string) => (
+                   <option key={gameType} value={gameType}>
+                     {gameType}
+                   </option>
+                 ))}
+               </select>
+               <div className="bg-zinc-900 border border-zinc-800 rounded-full px-5 py-2 text-[10px] font-black text-zinc-500 tracking-[0.1em] shadow-inner">
+                 SISTEMA: <span className="text-blue-400 font-mono italic">{group.rankingConfig?.mode?.toUpperCase() || 'ELO'}</span>
+               </div>
              </div>
           </div>
 
@@ -181,7 +214,11 @@ export default function GroupDetailPage() {
                     <div className="absolute top-0 left-0 w-full h-full bg-blue-500/10 blur-2xl animate-pulse" />
                   </div>
                   <p className="font-black italic uppercase text-zinc-100 tracking-widest text-xl">Sin historial de combate</p>
-                  <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">Inicia un lobby y completa victorias para reclamar tu lugar en el podio.</p>
+                  <p className="text-zinc-500 text-sm mt-2 max-w-xs mx-auto">
+                    {selectedGameType
+                      ? `Todavia no hay partidas rankeadas de ${selectedGameType}.`
+                      : 'Inicia un lobby y completa victorias para reclamar tu lugar en el podio.'}
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-zinc-800/30">

@@ -30,7 +30,7 @@ export default function GroupLobbyPage() {
   const [gameType, setGameType] = useState('League of Legends');
   const [teamCount, setTeamCount] = useState(2);
   const [teamNames, setTeamNames] = useState(['Equipo Azul', 'Equipo Rojo']);
-  const [teamAssignments, setTeamAssignments] = useState<Record<string, number>>({});
+  const [teamAssignments, setTeamAssignments] = useState<Record<string, number | undefined>>({});
   const [scores, setScores] = useState<number[]>([]);
   const [winner, setWinner] = useState<number | 'draw'>(0);
   const [excludedPlayers, setExcludedPlayers] = useState<Set<string>>(new Set());
@@ -71,20 +71,22 @@ export default function GroupLobbyPage() {
   ], [members, guests]);
 
   useEffect(() => {
+    setScores((currentScores) => {
+      if (currentScores.length === teamCount) return currentScores;
+      return Array.from({ length: teamCount }, (_, index) => currentScores[index] || 0);
+    });
+
     if (!allPlayers.length || Object.keys(teamAssignments).length > 0) return;
 
-    const nextAssignments: Record<string, number> = {};
+    const nextAssignments: Record<string, number | undefined> = {};
     let teamIndex = 0;
     allPlayers.forEach((player: any) => {
-      if (!excludedPlayers.has(player.id)) {
-        nextAssignments[player.id] = teamIndex % teamCount;
-        teamIndex++;
-      }
+      if (excludedPlayers.has(player.id)) return;
+
+      nextAssignments[player.id] = teamIndex % teamCount;
+      teamIndex++;
     });
     setTeamAssignments(nextAssignments);
-    
-    // Inicializar scores para cada equipo
-    setScores(new Array(teamCount).fill(0));
   }, [allPlayers, teamAssignments, teamCount, excludedPlayers]);
 
   useEffect(() => {
@@ -114,15 +116,12 @@ export default function GroupLobbyPage() {
       setTeamNames(newTeamNames);
       setScores(newScores);
       
-      // Reasignar jugadores
-      const nextAssignments: Record<string, number> = {};
-      allPlayers.forEach((player: any, playerIndex: number) => {
-        if (excludedPlayers.has(player.id)) return;
-        
+      const nextAssignments: Record<string, number | undefined> = {};
+      allPlayers.forEach((player: any) => {
         const currentAssignment = teamAssignments[player.id];
         if (currentAssignment === indexToRemove) {
-          nextAssignments[player.id] = playerIndex % newTeamCount;
-        } else if (currentAssignment > indexToRemove) {
+          nextAssignments[player.id] = undefined;
+        } else if (typeof currentAssignment === 'number' && currentAssignment > indexToRemove) {
           nextAssignments[player.id] = currentAssignment - 1;
         } else {
           nextAssignments[player.id] = currentAssignment;
@@ -152,6 +151,16 @@ export default function GroupLobbyPage() {
     const newTeamNames = [...teamNames];
     newTeamNames[index] = name;
     setTeamNames(newTeamNames);
+  };
+
+  const updatePlayerAssignment = (playerId: string, value: string) => {
+    const nextAssignments = { ...teamAssignments };
+    if (value === '') {
+      delete nextAssignments[playerId];
+    } else {
+      nextAssignments[playerId] = parseInt(value, 10);
+    }
+    setTeamAssignments(nextAssignments);
   };
 
   const createMatchMutation = useMutation({
@@ -232,6 +241,7 @@ export default function GroupLobbyPage() {
   });
 
   const canCreateMatch = isMember && !activeMatch && allPlayers.length >= 2;
+  const selectedPlayersCount = allPlayers.filter((player: any) => teamAssignments[player.id] !== undefined).length;
   const hasBothTeams = Array.from({ length: teamCount }, (_, i) => 
     allPlayers.some((player: any) => teamAssignments[player.id] === i)
   ).every(Boolean);
@@ -322,11 +332,16 @@ export default function GroupLobbyPage() {
             <Button
               onClick={() => createMatchMutation.mutate()}
               isLoading={createMatchMutation.isPending}
-              disabled={!canCreateMatch || !hasBothTeams}
+              disabled={!canCreateMatch || selectedPlayersCount < 2 || !hasBothTeams}
               className="w-full h-14 bg-blue-600 hover:bg-blue-500 font-black uppercase italic disabled:opacity-50"
             >
               {createMatchMutation.isPending ? 'Creando...' : 'Crear Partida'}
             </Button>
+            {!activeMatch && (
+              <p className="text-xs text-zinc-500">
+                Selecciona solo quienes participan en esta partida. Cada equipo necesita al menos un jugador.
+              </p>
+            )}
           </CardContent>
         </Card>
 
