@@ -42,7 +42,9 @@ export default function GroupSettingsPage() {
     phone: '',
   });
 
-  const [activeSection, setActiveSection] = useState<'profile' | 'members' | 'ranking' | 'games'>('profile');
+  const [inviteEmail, setInviteEmail] = useState('');
+
+  const [activeSection, setActiveSection] = useState<'profile' | 'members' | 'ranking' | 'games' | 'invitations'>('profile');
 
   const [rankingConfig, setRankingConfig] = useState({
     mode: 'elo' as 'elo' | 'points',
@@ -204,6 +206,31 @@ export default function GroupSettingsPage() {
     },
   });
 
+  const inviteUserMutation = useMutation({
+    mutationFn: (email: string) => apiClient.inviteUser(id as string, email),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Invitación enviada');
+      setInviteEmail('');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al enviar invitación';
+      toast.error(msg);
+    },
+  });
+
+  const cancelInvitationMutation = useMutation({
+    mutationFn: (invitationId: string) => apiClient.cancelInvitation(id as string, invitationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Invitación cancelada');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al cancelar invitación';
+      toast.error(msg);
+    },
+  });
+
   useEffect(() => {
     if (response?.data) {
         const group = response.data;
@@ -357,6 +384,17 @@ export default function GroupSettingsPage() {
           >
             <TrophyIcon className="w-5 h-5" />
             <span>Juegos Soportados</span>
+          </div>
+          <div 
+            onClick={() => setActiveSection('invitations')}
+            className={`p-4 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider cursor-pointer ${
+              activeSection === 'invitations'
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+                : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+            }`}
+          >
+            <UserPlusIcon className="w-5 h-5" />
+            <span>Invitaciones</span>
           </div>
           <div className="pt-6 mt-6 border-t border-zinc-900">
              <button
@@ -831,27 +869,26 @@ export default function GroupSettingsPage() {
                   {group.supportedGames && group.supportedGames.length > 0 && (
                     <div className="space-y-3">
                       <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider">Juegos Activos</h3>
-                      {group.supportedGames.map((game: string) => (
-                        <div
-                          key={game}
-                          className="flex items-center justify-between p-4 bg-zinc-950/40 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
-                        >
-                          <span className="font-bold text-zinc-100">{game}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`¿Eliminar ${game}?`)) {
-                                removeSupportedGameMutation.mutate(game);
-                              }
-                            }}
-                            disabled={removeSupportedGameMutation.isPending}
-                            className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
-                          >
-                            <XMarkIcon className="w-5 h-5" />
-                          </Button>
-                        </div>
-                      ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.supportedGames.map((game: string) => (
+                          <div key={game} className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-800 flex items-center justify-between">
+                            <span className="font-black uppercase italic text-zinc-100">{game}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`¿Eliminar ${game}?`)) {
+                                  removeSupportedGameMutation.mutate(game);
+                                }
+                              }}
+                              disabled={removeSupportedGameMutation.isPending}
+                              className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                            >
+                              <XMarkIcon className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -859,6 +896,85 @@ export default function GroupSettingsPage() {
                     <div className="text-center py-8 text-zinc-500">
                       <TrophyIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
                       <p className="text-sm">No hay juegos soportados</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {activeSection === 'invitations' && (
+            <>
+              <Card className="bg-zinc-900/60 border-zinc-800 shadow-2xl">
+                <CardHeader className="border-b border-zinc-800/50 mb-6 bg-zinc-800/20">
+                  <CardTitle className="text-xl uppercase italic">Invitaciones</CardTitle>
+                  <CardDescription className="text-zinc-400">Invita usuarios a unirse al grupo.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Formulario para invitar */}
+                  <div className="p-6 bg-zinc-950/60 rounded-2xl border border-zinc-800">
+                    <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider mb-4">Enviar Invitación</h3>
+                    <div className="flex gap-3">
+                      <Input
+                        type="email"
+                        placeholder="Email del usuario"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && inviteEmail.trim()) {
+                            inviteUserMutation.mutate(inviteEmail.trim());
+                          }
+                        }}
+                        className="bg-zinc-900 border-zinc-800"
+                      />
+                      <Button
+                        onClick={() => inviteEmail.trim() && inviteUserMutation.mutate(inviteEmail.trim())}
+                        disabled={inviteUserMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-500"
+                      >
+                        Invitar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lista de invitaciones */}
+                  {group.invitations && group.invitations.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider">Invitaciones Pendientes</h3>
+                      <div className="space-y-3">
+                        {group.invitations
+                          .filter((inv: any) => inv.status === 'pending')
+                          .map((invitation: any) => (
+                            <div key={invitation._id} className="p-4 bg-zinc-950/60 rounded-xl border border-zinc-800 flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-black uppercase italic text-zinc-100">{invitation.email}</p>
+                                <p className="text-xs text-zinc-500 mt-1">
+                                  Enviada el {new Date(invitation.sentAt).toLocaleDateString('es-ES')}
+                                </p>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm('¿Cancelar esta invitación?')) {
+                                    cancelInvitationMutation.mutate(invitation._id);
+                                  }
+                                }}
+                                disabled={cancelInvitationMutation.isPending}
+                                className="text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-3"
+                              >
+                                <XMarkIcon className="w-5 h-5" />
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!group.invitations || group.invitations.filter((inv: any) => inv.status === 'pending').length === 0) && (
+                    <div className="text-center py-8 text-zinc-500">
+                      <UserPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">No hay invitaciones pendientes</p>
                     </div>
                   )}
                 </CardContent>
