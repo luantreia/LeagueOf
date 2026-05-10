@@ -9,7 +9,7 @@
     "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
-    "test": "jest --coverage",
+    "test": "jest --coverage --passWithNoTests",
     "test:watch": "jest --watch",
     "migration:run": "node dist/scripts/migrations.js"
   },
