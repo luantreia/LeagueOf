@@ -27,7 +27,7 @@ export default function GroupLobbyPage() {
   const queryClient = useQueryClient();
 
   const [matchName, setMatchName] = useState('');
-  const [gameType, setGameType] = useState('League of Legends');
+  const [gameType, setGameType] = useState('');
   const [teamCount, setTeamCount] = useState(2);
   const [teamNames, setTeamNames] = useState(['Equipo Azul', 'Equipo Rojo']);
   const [teamAssignments, setTeamAssignments] = useState<Record<string, number | undefined>>({});
@@ -94,6 +94,12 @@ export default function GroupLobbyPage() {
       setMatchName(`${group.name} - Partida`);
     }
   }, [group, matchName]);
+
+  useEffect(() => {
+    if (group?.supportedGames && group.supportedGames.length > 0 && !gameType) {
+      setGameType(group.supportedGames[0]);
+    }
+  }, [group, gameType]);
 
   const isMember = members.some((member: any) => member.user._id === user?._id);
 
@@ -320,13 +326,22 @@ export default function GroupLobbyPage() {
               <select
                 value={gameType}
                 onChange={(e) => setGameType(e.target.value)}
-                className="w-full h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+                disabled={!group?.supportedGames || group.supportedGames.length === 0}
+                className="w-full h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="League of Legends">League of Legends</option>
-                <option value="Valorant">Valorant</option>
-                <option value="CS:GO">CS:GO</option>
-                <option value="Custom">Personalizado</option>
+                {group?.supportedGames && group.supportedGames.length > 0 ? (
+                  group.supportedGames.map((game: string) => (
+                    <option key={game} value={game}>{game}</option>
+                  ))
+                ) : (
+                  <option value="">No hay juegos configurados</option>
+                )}
               </select>
+              {!group?.supportedGames || group.supportedGames.length === 0 && (
+                <p className="text-[10px] text-red-400 mt-2">
+                  Agrega juegos en la configuración del grupo
+                </p>
+              )}
             </div>
 
             <Button

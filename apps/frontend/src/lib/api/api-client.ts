@@ -167,6 +167,16 @@ export class ApiClient {
     return response.data;
   }
 
+  async addSupportedGame(groupId: string, game: string) {
+    const response = await this.client.post(`/api/groups/${groupId}/supported-games`, { game });
+    return response.data;
+  }
+
+  async removeSupportedGame(groupId: string, game: string) {
+    const response = await this.client.delete(`/api/groups/${groupId}/supported-games/${encodeURIComponent(game)}`);
+    return response.data;
+  }
+
   // Rankings
   async getLeaderboard(groupId: string, page = 1, limit = 50, gameType?: string) {
     const response = await this.client.get(`/api/rankings/group/${groupId}`, {

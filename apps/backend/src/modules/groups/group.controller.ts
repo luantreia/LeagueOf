@@ -141,4 +141,30 @@ export class GroupController {
       next(error);
     }
   };
+
+  addSupportedGame = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user!.id;
+      const { game } = req.body;
+      
+      const group = await this.groupService.addSupportedGame(groupId, game, userId);
+      ApiResponse.success(res, group, 'Game added successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  removeSupportedGame = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user!.id;
+      const { game } = req.params;
+      
+      const group = await this.groupService.removeSupportedGame(groupId, game, userId);
+      ApiResponse.success(res, group, 'Game removed successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }

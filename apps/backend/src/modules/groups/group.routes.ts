@@ -16,5 +16,7 @@ router.patch('/:id/members/:memberId', authenticate, controller.updateMemberRole
 router.delete('/:id/members/:memberId', authenticate, controller.removeMember);
 router.patch('/:id/ranking-config', authenticate, controller.updateRankingConfig);
 router.post('/:id/reset-rankings', authenticate, controller.resetRankings);
+router.post('/:id/supported-games', authenticate, controller.addSupportedGame);
+router.delete('/:id/supported-games/:game', authenticate, controller.removeSupportedGame);
 
 export const groupRoutes = router;

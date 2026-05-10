@@ -113,6 +113,20 @@ export class MatchService {
       throw new AppError('Este grupo no permite crear partidas', 403);
     }
 
+    // Validar gameType contra supportedGames
+    const normalizedGameType = (data.gameType || '').trim().toLowerCase();
+    if (group.supportedGames && group.supportedGames.length > 0) {
+      const isGameSupported = group.supportedGames.some(
+        (game: string) => game.toLowerCase() === normalizedGameType
+      );
+      if (!isGameSupported) {
+        throw new AppError(
+          `El juego "${data.gameType}" no está soportado. Juegos permitidos: ${group.supportedGames.join(', ')}`,
+          400
+        );
+      }
+    }
+
     if (!Array.isArray(data.teams) || data.teams.length < 2) {
       throw new AppError('La partida necesita al menos dos equipos', 400);
     }

@@ -278,6 +278,49 @@ export class GroupService {
     }
   }
 
+  async addSupportedGame(groupId: string, game: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para agregar juegos', 403);
+    }
+
+    if (!game || game.trim() === '') {
+      throw new AppError('El nombre del juego es requerido', 400);
+    }
+
+    const normalizedGame = game.trim();
+    if (group.supportedGames.includes(normalizedGame)) {
+      throw new AppError('Este juego ya está en la lista', 400);
+    }
+
+    group.supportedGames.push(normalizedGame);
+    return await group.save();
+  }
+
+  async removeSupportedGame(groupId: string, game: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para eliminar juegos', 403);
+    }
+
+    const normalizedGame = game.trim();
+    const index = group.supportedGames.indexOf(normalizedGame);
+    if (index === -1) {
+      throw new AppError('Este juego no está en la lista', 404);
+    }
+
+    group.supportedGames.splice(index, 1);
+    return await group.save();
+  }
+
   private async ensureRanking(userId: string, group: IGroup): Promise<void> {
     const existingRanking = await Ranking.findOne({ user: userId, group: group._id });
     if (existingRanking) return;

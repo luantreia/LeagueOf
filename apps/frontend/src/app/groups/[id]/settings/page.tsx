@@ -42,7 +42,7 @@ export default function GroupSettingsPage() {
     phone: '',
   });
 
-  const [activeSection, setActiveSection] = useState<'profile' | 'members' | 'ranking'>('profile');
+  const [activeSection, setActiveSection] = useState<'profile' | 'members' | 'ranking' | 'games'>('profile');
 
   const [rankingConfig, setRankingConfig] = useState({
     mode: 'elo' as 'elo' | 'points',
@@ -57,6 +57,8 @@ export default function GroupSettingsPage() {
       drawPoints: 1,
     },
   });
+
+  const [newGame, setNewGame] = useState('');
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['group', id],
@@ -173,6 +175,31 @@ export default function GroupSettingsPage() {
     },
     onError: (error: any) => {
       const msg = error.response?.data?.message || 'Error al resetear rankings';
+      toast.error(msg);
+    },
+  });
+
+  const addSupportedGameMutation = useMutation({
+    mutationFn: (game: string) => apiClient.addSupportedGame(id as string, game),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Juego agregado');
+      setNewGame('');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al agregar juego';
+      toast.error(msg);
+    },
+  });
+
+  const removeSupportedGameMutation = useMutation({
+    mutationFn: (game: string) => apiClient.removeSupportedGame(id as string, game),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Juego eliminado');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al eliminar juego';
       toast.error(msg);
     },
   });
@@ -305,6 +332,17 @@ export default function GroupSettingsPage() {
           >
             <TrophyIcon className="w-5 h-5" />
             <span>Ajustes de Ranking</span>
+          </div>
+          <div 
+            onClick={() => setActiveSection('games')}
+            className={`p-4 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider cursor-pointer ${
+              activeSection === 'games'
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+                : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+            }`}
+          >
+            <TrophyIcon className="w-5 h-5" />
+            <span>Juegos Soportados</span>
           </div>
           <div className="pt-6 mt-6 border-t border-zinc-900">
              <button
@@ -737,6 +775,78 @@ export default function GroupSettingsPage() {
                       {resetRankingsMutation.isPending ? 'Reseteando...' : 'Resetear Todos los Rankings'}
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {activeSection === 'games' && (
+            <>
+              <Card className="bg-zinc-900/60 border-zinc-800 shadow-2xl">
+                <CardHeader className="border-b border-zinc-800/50 mb-6 bg-zinc-800/20">
+                  <CardTitle className="text-xl uppercase italic">Juegos Soportados</CardTitle>
+                  <CardDescription className="text-zinc-400">Define qué juegos se pueden jugar en este grupo.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Formulario para agregar juego */}
+                  <div className="p-6 bg-zinc-950/60 rounded-2xl border border-zinc-800">
+                    <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider mb-4">Agregar Juego</h3>
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="Ej: League of Legends"
+                        value={newGame}
+                        onChange={(e) => setNewGame(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && newGame.trim()) {
+                            addSupportedGameMutation.mutate(newGame.trim());
+                          }
+                        }}
+                        className="bg-zinc-900 border-zinc-800"
+                      />
+                      <Button
+                        onClick={() => newGame.trim() && addSupportedGameMutation.mutate(newGame.trim())}
+                        disabled={!newGame.trim() || addSupportedGameMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-500"
+                      >
+                        {addSupportedGameMutation.isPending ? 'Agregando...' : 'Agregar'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lista de juegos */}
+                  {group.supportedGames && group.supportedGames.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider">Juegos Activos</h3>
+                      {group.supportedGames.map((game: string) => (
+                        <div
+                          key={game}
+                          className="flex items-center justify-between p-4 bg-zinc-950/40 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
+                        >
+                          <span className="font-bold text-zinc-100">{game}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`¿Eliminar ${game}?`)) {
+                                removeSupportedGameMutation.mutate(game);
+                              }
+                            }}
+                            disabled={removeSupportedGameMutation.isPending}
+                            className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            <XMarkIcon className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {(!group.supportedGames || group.supportedGames.length === 0) && (
+                    <div className="text-center py-8 text-zinc-500">
+                      <TrophyIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">No hay juegos soportados</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>
