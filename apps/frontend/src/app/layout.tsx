@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'League Of',
   },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
   formatDetection: {
     telephone: false,
   },
