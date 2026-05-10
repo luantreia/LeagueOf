@@ -34,6 +34,9 @@ export default function GroupLobbyPage() {
   const [scores, setScores] = useState<number[]>([]);
   const [winner, setWinner] = useState<number | 'draw'>(0);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestName, setGuestName] = useState('');
 
   const { data: groupResponse, isLoading } = useQuery({
     queryKey: ['group', id],
@@ -154,6 +157,34 @@ export default function GroupLobbyPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'No se pudo crear la partida');
+    },
+  });
+
+  const createGuestMutation = useMutation({
+    mutationFn: () => {
+      if (!guestName.trim()) {
+        throw new Error('El nombre del invitado es requerido');
+      }
+      if (!guestEmail.trim() && !guestPhone.trim()) {
+        throw new Error('Debes proporcionar email o teléfono');
+      }
+      
+      return apiClient.createGuest({
+        group: id as string,
+        name: guestName,
+        email: guestEmail || undefined,
+        phone: guestPhone || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guests', id] });
+      setGuestName('');
+      setGuestEmail('');
+      setGuestPhone('');
+      toast.success('Invitado creado correctamente');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || error.message || 'No se pudo crear el invitado');
     },
   });
 
@@ -285,6 +316,17 @@ export default function GroupLobbyPage() {
             <CardDescription>Invitá jugadores temporales por email o teléfono</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Nombre del invitado *
+              </label>
+              <Input
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder="Nombre del jugador fantasma"
+                className="h-12"
+              />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
@@ -292,6 +334,8 @@ export default function GroupLobbyPage() {
                 </label>
                 <Input
                   type="email"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="email@ejemplo.com"
                   className="h-12"
                 />
@@ -302,19 +346,23 @@ export default function GroupLobbyPage() {
                 </label>
                 <Input
                   type="tel"
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
                   placeholder="+54 9 1234 5678"
                   className="h-12"
                 />
               </div>
             </div>
+            <p className="text-[10px] text-zinc-600">
+              * Campos requeridos. Debes proporcionar al menos nombre y email o teléfono.
+            </p>
             <Button
-              onClick={() => {
-                // TODO: Implementar lógica de invitación
-                toast.success('Invitación enviada (simulado)');
-              }}
-              className="w-full h-12 bg-purple-600 hover:bg-purple-500 font-black uppercase"
+              onClick={() => createGuestMutation.mutate()}
+              isLoading={createGuestMutation.isPending}
+              disabled={!guestName.trim() || (!guestEmail.trim() && !guestPhone.trim())}
+              className="w-full h-12 bg-purple-600 hover:bg-purple-500 font-black uppercase disabled:opacity-50"
             >
-              Enviar Invitación
+              {createGuestMutation.isPending ? 'Creando...' : 'Crear Jugador Fantasma'}
             </Button>
           </CardContent>
         </Card>
