@@ -155,13 +155,6 @@ export class ApiClient {
     return response.data;
   }
 
-  async getGlobalLeaderboard(page = 1, limit = 100) {
-    const response = await this.client.get('/api/rankings/global', {
-      params: { page, limit },
-    });
-    return response.data;
-  }
-
   async getUserRanking(userId: string, groupId: string) {
     const response = await this.client.get(
       `/api/rankings/user/${userId}/group/${groupId}`

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/api-client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -18,31 +18,32 @@ const getPlayerName = (ranking: any) => {
 };
 
 export default function RankingsPage() {
-  const [selectedGroupId, setSelectedGroupId] = useState('global');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
 
   const { data: groupsResponse, isLoading: isLoadingGroups } = useQuery({
     queryKey: ['groups', 'rankings-filter'],
     queryFn: () => apiClient.getGroups({ filter: 'joined' }),
   });
 
-  const groupIdForQuery = selectedGroupId === 'global' ? null : selectedGroupId;
+  const groups = useMemo(() => groupsResponse?.data || [], [groupsResponse]);
+  const activeGroupId = selectedGroupId || groups[0]?._id || '';
+
+  useEffect(() => {
+    if (!selectedGroupId && groups.length > 0) {
+      setSelectedGroupId(groups[0]._id);
+    }
+  }, [groups, selectedGroupId]);
 
   const { data: leaderboardResponse, isLoading: isLoadingLeaderboard } = useQuery({
-    queryKey: ['rankings', selectedGroupId],
-    queryFn: () => {
-      if (groupIdForQuery) {
-        return apiClient.getLeaderboard(groupIdForQuery, 1, 100);
-      }
-
-      return apiClient.getGlobalLeaderboard(1, 100);
-    },
+    queryKey: ['rankings', activeGroupId],
+    queryFn: () => apiClient.getLeaderboard(activeGroupId, 1, 100),
+    enabled: !!activeGroupId,
   });
 
-  const groups = useMemo(() => groupsResponse?.data || [], [groupsResponse]);
   const rankings = leaderboardResponse?.rankings || [];
   const selectedGroup = useMemo(
-    () => groups.find((group: any) => group._id === selectedGroupId),
-    [groups, selectedGroupId]
+    () => groups.find((group: any) => group._id === activeGroupId),
+    [groups, activeGroupId]
   );
   const isLoading = isLoadingGroups || isLoadingLeaderboard;
 
@@ -51,7 +52,7 @@ export default function RankingsPage() {
       <div className="mb-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Rankings</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Leaderboards reales de tus grupos. El global combina rankings existentes y muestra el tipo de puntaje de cada grupo.
+          Leaderboards reales por grupo, con el sistema de puntaje definido para cada comunidad.
         </p>
       </div>
 
@@ -60,24 +61,13 @@ export default function RankingsPage() {
           <section>
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Filtrar por Grupo</h3>
             <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setSelectedGroupId('global')}
-                className={`w-full text-left px-4 py-2 rounded-lg font-bold border transition-colors ${
-                  selectedGroupId === 'global'
-                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                    : 'hover:bg-white/5 text-gray-400 border-transparent'
-                }`}
-              >
-                Global
-              </button>
               {groups.map((group: any) => (
                 <button
                   key={group._id}
                   type="button"
                   onClick={() => setSelectedGroupId(group._id)}
                   className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    selectedGroupId === group._id
+                    activeGroupId === group._id
                       ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold'
                       : 'hover:bg-white/5 text-gray-400'
                   }`}
@@ -99,7 +89,7 @@ export default function RankingsPage() {
             <CardHeader className="border-b border-gray-100 dark:border-gray-800">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <CardTitle>
-                  {selectedGroupId === 'global' ? 'Ranking Global' : selectedGroup?.name || 'Ranking del Grupo'}
+                  {selectedGroup?.name || 'Ranking del Grupo'}
                 </CardTitle>
                 <div className="text-xs text-gray-500 font-medium">
                   {leaderboardResponse?.total ?? 0} registros reales

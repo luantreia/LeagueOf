@@ -69,13 +69,15 @@ export default function Home() {
     enabled: !!user,
   });
 
+  const groups = useMemo(() => groupsResponse?.data || [], [groupsResponse]);
+  const primaryGroup = groups[0];
+
   const { data: rankingResponse, isLoading: isLoadingRankings } = useQuery({
-    queryKey: ['dashboard', 'rankings'],
-    queryFn: () => apiClient.getGlobalLeaderboard(1, 25),
-    enabled: !!user,
+    queryKey: ['dashboard', 'rankings', primaryGroup?._id],
+    queryFn: () => apiClient.getLeaderboard(primaryGroup._id, 1, 10),
+    enabled: !!user && !!primaryGroup?._id,
   });
 
-  const groups = useMemo(() => groupsResponse?.data || [], [groupsResponse]);
   const matches = useMemo(() => matchesResponse?.data || [], [matchesResponse]);
   const summary = summaryResponse?.data || {
     total: user?.stats?.totalMatches || 0,
@@ -90,7 +92,6 @@ export default function Home() {
   const topRankings = rankings.slice(0, 4);
   const activeMatches = matches.filter((match: any) => match.status !== 'completed').slice(0, 4);
   const completedMatches = matches.filter((match: any) => match.status === 'completed').slice(0, 3);
-  const primaryGroup = groups[0];
   const winRate = summary.total > 0 ? Math.round((summary.wins / summary.total) * 100) : 0;
   const isDashboardLoading = isLoadingGroups || isLoadingMatches || isLoadingRankings;
 
@@ -191,7 +192,7 @@ export default function Home() {
                 <div>
                   <p className="text-4xl font-black italic text-zinc-100 leading-none">{getScore(personalRanking)}</p>
                   <p className="text-sm text-zinc-500 mt-3">
-                    {personalRanking?.group?.name || 'Ranking global combinado'}
+                    {primaryGroup?.name || 'Sin grupo seleccionado'}
                   </p>
                 </div>
                 <div className="h-16 w-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
@@ -267,7 +268,7 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <PanelHeader title="Top competitivo" actionHref="/rankings" actionLabel="Ranking" />
+              <PanelHeader title="Top del grupo" actionHref="/rankings" actionLabel="Ranking" />
               <Card className="bg-zinc-900/40 border-zinc-800">
                 <CardContent className="p-5 space-y-3">
                   {topRankings.length > 0 ? (
@@ -279,7 +280,7 @@ export default function Home() {
                             {ranking.user?.displayName || ranking.user?.username || 'Jugador'}
                           </p>
                           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 truncate">
-                            {ranking.group?.name || 'Global'}
+                            {ranking.group?.name || primaryGroup?.name || 'Grupo'}
                           </p>
                         </div>
                         <p className="font-black text-zinc-100">{getScore(ranking)}</p>
@@ -336,7 +337,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
-            <Feature icon={<TrophyIcon className="w-7 h-7" />} title="Rankings" text="Rankings por grupo y globales actualizados con cada resultado." />
+            <Feature icon={<TrophyIcon className="w-7 h-7" />} title="Rankings" text="Rankings por grupo actualizados con cada resultado." />
             <Feature icon={<BoltIcon className="w-7 h-7" />} title="Partidas" text="Crea lobbies, carga resultados y conserva el historial competitivo." />
             <Feature icon={<UserGroupIcon className="w-7 h-7" />} title="Grupos" text="Arma comunidades privadas o publicas con sus propias reglas." />
           </div>

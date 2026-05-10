@@ -310,36 +310,6 @@ export class RankingService {
     return result;
   }
 
-  async getGlobalLeaderboard(
-    page: number = 1,
-    limit: number = 100
-  ): Promise<{ rankings: IRanking[]; total: number }> {
-    const groups = await Group.find({ isActive: true });
-    for (const group of groups) {
-      await this.ensureGroupRankingsForMembers(group);
-    }
-
-    const rankings = await Ranking.find({ isActive: true })
-      .populate('user', 'username displayName avatar')
-      .populate('group', 'name handle rankingConfig')
-      .lean();
-
-    const sortedRankings = rankings
-      .sort((a: any, b: any) => {
-        const aScore = a.rankingType === 'elo' ? a.elo?.rating || 0 : a.points?.total || 0;
-        const bScore = b.rankingType === 'elo' ? b.elo?.rating || 0 : b.points?.total || 0;
-        return bScore - aScore;
-      });
-
-    const start = (page - 1) * limit;
-    const paginatedRankings = sortedRankings.slice(start, start + limit).map((ranking, index) => ({
-      ...ranking,
-      rank: start + index + 1,
-    }));
-
-    return { rankings: paginatedRankings as unknown as IRanking[], total: sortedRankings.length };
-  }
-
   private async ensureGroupRankingsForMembers(group: any): Promise<void> {
     for (const member of group.members || []) {
       const userId = member.user?.toString();
