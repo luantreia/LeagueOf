@@ -196,6 +196,51 @@ export class ApiClient {
     const response = await this.client.post('/api/notifications/mark-all-read');
     return response.data;
   }
+
+  // Guests
+  async createGuest(data: {
+    group: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  }) {
+    const response = await this.client.post('/api/guests', data);
+    return response.data;
+  }
+
+  async getGuestsByGroup(groupId: string) {
+    const response = await this.client.get(`/api/guests/group/${groupId}`);
+    return response.data;
+  }
+
+  async deleteGuest(guestId: string) {
+    const response = await this.client.delete(`/api/guests/${guestId}`);
+    return response.data;
+  }
+
+  async checkForGuests(email?: string, phone?: string) {
+    const response = await this.client.get('/api/auth/guests/check', {
+      params: { email, phone },
+    });
+    return response.data;
+  }
+
+  async sendGuestVerificationCode(email?: string, phone?: string) {
+    const response = await this.client.post('/api/auth/guests/send-verification', {
+      email,
+      phone,
+    });
+    return response.data;
+  }
+
+  async verifyAndClaimGuests(code: string, email?: string, phone?: string) {
+    const response = await this.client.post('/api/auth/guests/verify', {
+      code,
+      email,
+      phone,
+    });
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

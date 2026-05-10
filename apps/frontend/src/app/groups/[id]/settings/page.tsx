@@ -10,15 +10,17 @@ import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { 
-  ChevronLeftIcon, 
-  Cog6ToothIcon, 
-  ShieldCheckIcon, 
-  GlobeAltIcon, 
+import {
+  ChevronLeftIcon,
+  Cog6ToothIcon,
+  ShieldCheckIcon,
+  GlobeAltIcon,
   LockClosedIcon,
   ExclamationTriangleIcon,
   TrophyIcon,
-  TrashIcon
+  TrashIcon,
+  UserPlusIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 export default function GroupSettingsPage() {
@@ -32,6 +34,12 @@ export default function GroupSettingsPage() {
     handle: '',
     description: '',
     isPublic: true,
+  });
+
+  const [guestForm, setGuestForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
   });
 
   const { data: response, isLoading } = useQuery({
@@ -69,6 +77,37 @@ export default function GroupSettingsPage() {
     },
     onError: (error: any) => {
       const msg = error.response?.data?.message || 'Error al eliminar el grupo';
+      toast.error(msg);
+    },
+  });
+
+  const { data: guestsResponse } = useQuery({
+    queryKey: ['guests', id],
+    queryFn: () => apiClient.getGuestsByGroup(id as string),
+    enabled: !!id,
+  });
+
+  const createGuestMutation = useMutation({
+    mutationFn: (data: any) => apiClient.createGuest({ ...data, group: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guests', id] });
+      toast.success('Invitado creado exitosamente');
+      setGuestForm({ name: '', email: '', phone: '' });
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al crear invitado';
+      toast.error(msg);
+    },
+  });
+
+  const deleteGuestMutation = useMutation({
+    mutationFn: (guestId: string) => apiClient.deleteGuest(guestId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guests', id] });
+      toast.success('Invitado eliminado');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al eliminar invitado';
       toast.error(msg);
     },
   });
@@ -237,8 +276,8 @@ export default function GroupSettingsPage() {
                   type="button"
                   onClick={() => setFormData({ ...formData, isPublic: true })}
                   className={`p-6 rounded-2xl border-2 transition-all flex flex-col gap-3 items-start text-left group ${
-                    formData.isPublic 
-                      ? 'border-blue-600 bg-blue-600/5 ring-1 ring-blue-500/50 shadow-lg shadow-blue-500/10' 
+                    formData.isPublic
+                      ? 'border-blue-600 bg-blue-600/5 ring-1 ring-blue-500/50 shadow-lg shadow-blue-500/10'
                       : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/40 hover:border-zinc-700'
                   }`}
                 >
@@ -255,8 +294,8 @@ export default function GroupSettingsPage() {
                   type="button"
                   onClick={() => setFormData({ ...formData, isPublic: false })}
                   className={`p-6 rounded-2xl border-2 transition-all flex flex-col gap-3 items-start text-left group ${
-                    !formData.isPublic 
-                      ? 'border-blue-600 bg-blue-600/5 ring-1 ring-blue-500/50 shadow-lg shadow-blue-500/10' 
+                    !formData.isPublic
+                      ? 'border-blue-600 bg-blue-600/5 ring-1 ring-blue-500/50 shadow-lg shadow-blue-500/10'
                       : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/40 hover:border-zinc-700'
                   }`}
                 >
@@ -269,6 +308,97 @@ export default function GroupSettingsPage() {
                   <p className={`text-xs leading-relaxed ${!formData.isPublic ? 'text-zinc-300' : 'text-zinc-600'}`}>Solo aquellos con invitación directa pueden cruzar el portal de tu comunidad.</p>
                 </button>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900/60 border-zinc-800 shadow-2xl">
+            <CardHeader className="border-b border-zinc-800/50 mb-6 bg-zinc-800/20">
+              <CardTitle className="text-xl uppercase italic flex items-center gap-2">
+                <UserPlusIcon className="w-5 h-5" />
+                Invitados Temporales
+              </CardTitle>
+              <CardDescription className="text-zinc-400">Crea cuentas temporales para jugadores sin registro en la app.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Formulario para crear guest */}
+              <div className="p-6 bg-zinc-950/60 rounded-2xl border border-zinc-800">
+                <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider mb-4">Nuevo Invitado</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input
+                    placeholder="Nombre"
+                    value={guestForm.name}
+                    onChange={(e) => setGuestForm({ ...guestForm, name: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                  <Input
+                    placeholder="Email (opcional)"
+                    type="email"
+                    value={guestForm.email}
+                    onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                  <Input
+                    placeholder="Teléfono (opcional)"
+                    value={guestForm.phone}
+                    onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })}
+                    className="bg-zinc-900 border-zinc-800"
+                  />
+                </div>
+                <Button
+                  onClick={() => createGuestMutation.mutate(guestForm)}
+                  disabled={!guestForm.name || createGuestMutation.isPending}
+                  className="mt-4 bg-blue-600 hover:bg-blue-500"
+                >
+                  {createGuestMutation.isPending ? 'Creando...' : 'Crear Invitado'}
+                </Button>
+              </div>
+
+              {/* Lista de guests */}
+              {guestsResponse?.data && guestsResponse.data.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black text-zinc-300 uppercase tracking-wider">Invitados Activos</h3>
+                  {guestsResponse.data.map((guest: any) => (
+                    <div
+                      key={guest._id}
+                      className="flex items-center justify-between p-4 bg-zinc-950/40 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+                          <UserPlusIcon className="w-5 h-5 text-zinc-500" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-zinc-100">{guest.name}</p>
+                          <div className="flex gap-3 text-xs text-zinc-500">
+                            {guest.email && <span>{guest.email}</span>}
+                            {guest.phone && <span>{guest.phone}</span>}
+                            {!guest.email && !guest.phone && <span>Sin contacto</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('¿Eliminar este invitado?')) {
+                            deleteGuestMutation.mutate(guest._id);
+                          }
+                        }}
+                        disabled={deleteGuestMutation.isPending}
+                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                      >
+                        <XMarkIcon className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {guestsResponse?.data && guestsResponse.data.length === 0 && (
+                <div className="text-center py-8 text-zinc-500">
+                  <UserPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No hay invitados en este grupo</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

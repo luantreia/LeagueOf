@@ -43,22 +43,34 @@ export default function GroupLobbyPage() {
     enabled: !!id,
   });
 
+  const { data: guestsResponse } = useQuery({
+    queryKey: ['guests', id],
+    queryFn: () => apiClient.getGuestsByGroup(id as string),
+    enabled: !!id,
+  });
+
   const group = groupResponse?.data;
   const members = useMemo(() => group?.members || [], [group]);
+  const guests = useMemo(() => guestsResponse?.data || [], [guestsResponse]);
   const matches = matchesResponse?.data || [];
   const activeMatch = matches.find((match: any) => match._id === activeMatchId)
     || matches.find((match: any) => match.status !== 'completed');
   const completedMatches = matches.filter((match: any) => match.status === 'completed');
 
+  const allPlayers = useMemo(() => [
+    ...members.map((m: any) => ({ ...m, type: 'user', id: m.user._id, name: m.user.username })),
+    ...guests.map((g: any) => ({ ...g, type: 'guest', id: g._id, name: g.name })),
+  ], [members, guests]);
+
   useEffect(() => {
-    if (!members.length || Object.keys(teamAssignments).length > 0) return;
+    if (!allPlayers.length || Object.keys(teamAssignments).length > 0) return;
 
     const nextAssignments: Record<string, number> = {};
-    members.forEach((member: any, index: number) => {
-      nextAssignments[member.user._id] = index % 2;
+    allPlayers.forEach((player: any, index: number) => {
+      nextAssignments[player.id] = index % 2;
     });
     setTeamAssignments(nextAssignments);
-  }, [members, teamAssignments]);
+  }, [allPlayers, teamAssignments]);
 
   useEffect(() => {
     if (group && !matchName) {
@@ -72,9 +84,11 @@ export default function GroupLobbyPage() {
     mutationFn: () => {
       const teams = [0, 1].map((teamIndex) => ({
         name: teamIndex === 0 ? 'Equipo Azul' : 'Equipo Rojo',
-        players: members
-          .filter((member: any) => teamAssignments[member.user._id] === teamIndex)
-          .map((member: any) => member.user._id),
+        players: allPlayers
+          .filter((player: any) => teamAssignments[player.id] === teamIndex)
+          .map((player: any) => ({
+            [player.type === 'user' ? 'user' : 'guest']: player.id,
+          })),
       }));
 
       return apiClient.createMatch({
@@ -114,9 +128,9 @@ export default function GroupLobbyPage() {
     },
   });
 
-  const canCreateMatch = isMember && !activeMatch && members.length >= 2;
+  const canCreateMatch = isMember && !activeMatch && allPlayers.length >= 2;
   const hasBothTeams = [0, 1].every((teamIndex) =>
-    members.some((member: any) => teamAssignments[member.user._id] === teamIndex)
+    allPlayers.some((player: any) => teamAssignments[player.id] === teamIndex)
   );
 
   if (isLoading) {
@@ -254,18 +268,21 @@ export default function GroupLobbyPage() {
                           {teamIndex === 0 ? 'Equipo Azul' : 'Equipo Rojo'}
                         </h4>
                         <div className="space-y-2">
-                          {members.map((member: any) => (
-                            <label key={member.user._id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-900 cursor-pointer">
+                          {allPlayers.map((player: any) => (
+                            <label key={player.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-900 cursor-pointer">
                               <input
                                 type="radio"
-                                name={`member-${member.user._id}`}
-                                checked={teamAssignments[member.user._id] === teamIndex}
+                                name={`player-${player.id}`}
+                                checked={teamAssignments[player.id] === teamIndex}
                                 onChange={() => setTeamAssignments({
                                   ...teamAssignments,
-                                  [member.user._id]: teamIndex,
+                                  [player.id]: teamIndex,
                                 })}
                               />
-                              <span className="text-zinc-300 font-bold">{member.user.username}</span>
+                              <span className={`text-zinc-300 font-bold ${player.type === 'guest' ? 'text-orange-400' : ''}`}>
+                                {player.name}
+                                {player.type === 'guest' && ' (Invitado)'}
+                              </span>
                             </label>
                           ))}
                         </div>
