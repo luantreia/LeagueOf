@@ -39,6 +39,12 @@ export default function GroupDetailPage() {
     enabled: !!id,
   });
 
+  const { data: guestsResponse } = useQuery({
+    queryKey: ['guests', id],
+    queryFn: () => apiClient.getGuestsByGroup(id as string),
+    enabled: !!id,
+  });
+
   const joinMutation = useMutation({
     mutationFn: () => apiClient.joinGroup(id as string),
     onSuccess: () => {
@@ -78,6 +84,7 @@ export default function GroupDetailPage() {
 
   const group = response.data;
   const rankings = leaderboardResponse?.rankings || [];
+  const guests = guestsResponse?.data || [];
   const isOwner = user?._id === (group.owner?._id || group.owner); // Support both populated and ID
   const isMember = group.members?.some((m: any) => (m.user?._id || m.user) === user?._id);
   const isPublic = group.settings?.isPublic;
@@ -255,7 +262,7 @@ export default function GroupDetailPage() {
                       </div>
                       <span className="text-[11px] font-black text-zinc-500 uppercase tracking-wider">Huestes Actuales</span>
                     </div>
-                    <span className="text-2xl font-black text-zinc-100 italic">{group.members?.length || 0}</span>
+                    <span className="text-2xl font-black text-zinc-100 italic">{(group.members?.length || 0) + guests.length}</span>
                   </div>
                   
                   <div className="p-6 border-b border-zinc-800/50 flex justify-between items-center group hover:bg-zinc-800/40 transition-all cursor-default">
@@ -288,7 +295,7 @@ export default function GroupDetailPage() {
                 {group.members?.slice(0, 15).map((m: any) => (
                   <div 
                     key={m.user._id} 
-                    title={m.user.username}
+                    title={`${m.user.username} (Miembro)`}
                     className="relative group h-12 w-12"
                   >
                     <div className="absolute inset-0 bg-blue-500/20 rounded-2xl blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -297,12 +304,35 @@ export default function GroupDetailPage() {
                     </div>
                   </div>
                 ))}
-                {group.members?.length > 15 && (
+                {guests.slice(0, 15).map((g: any) => (
+                  <div 
+                    key={g._id} 
+                    title={`${g.name} (Invitado)`}
+                    className="relative group h-12 w-12"
+                  >
+                    <div className="absolute inset-0 bg-purple-500/20 rounded-2xl blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative h-12 w-12 rounded-2xl bg-zinc-950 border border-purple-800/50 flex items-center justify-center text-sm font-black text-zinc-500 group-hover:text-purple-400 group-hover:border-purple-500/50 group-hover:-translate-y-1 transition-all cursor-pointer shadow-lg shadow-black/40">
+                      {g.name[0].toUpperCase()}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-purple-500/20 rounded-lg p-1">
+                      <div className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
+                    </div>
+                  </div>
+                ))}
+                {(group.members?.length || 0) + guests.length > 15 && (
                   <div className="h-12 w-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-600">
-                    +{group.members.length - 15}
+                    +{(group.members?.length || 0) + guests.length - 15}
                   </div>
                 )}
               </div>
+              {guests.length > 0 && (
+                <div className="px-2 flex items-center gap-2 text-[10px] text-zinc-600 font-black uppercase tracking-wider">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full" />
+                  Miembros: {group.members?.length || 0}
+                  <div className="w-2 h-2 bg-purple-400 rounded-full" />
+                  Invitados: {guests.length}
+                </div>
+              )}
            </div>
         </div>
       </div>
