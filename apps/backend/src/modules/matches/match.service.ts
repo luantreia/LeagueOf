@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Group } from '@/modules/groups/group.model';
+import { Guest } from '@/modules/guests/guest.model';
 import { Match, IMatch } from './match.model';
 import { RankingService } from '@/modules/rankings/ranking.service';
 import { AppError } from '@/shared/utils/app-error';
@@ -112,7 +113,11 @@ export class MatchService {
       throw new AppError('La partida necesita al menos dos equipos', 400);
     }
 
-    const allowedPlayers = new Set(group.members.map((member) => member.user.toString()));
+    // Obtener guests del grupo
+    const guests = await Guest.find({ group: group._id });
+    const allowedUsers = new Set(group.members.map((member) => member.user.toString()));
+    const allowedGuests = new Set(guests.map((guest) => guest._id.toString()));
+
     const normalizedTeams = data.teams.map((team: any, teamIndex: number) => {
       if (!Array.isArray(team.players) || team.players.length === 0) {
         throw new AppError(`El equipo ${teamIndex + 1} no tiene jugadores`, 400);
@@ -123,14 +128,27 @@ export class MatchService {
         score: Number(team.score) || 0,
         players: team.players.map((player: any) => {
           const userIdValue = typeof player === 'string' ? player : player.user;
-          if (!allowedPlayers.has(userIdValue)) {
-            throw new AppError('Todos los jugadores deben pertenecer al grupo', 400);
+          const guestIdValue = typeof player === 'string' ? player : player.guest;
+          
+          if (userIdValue) {
+            if (!allowedUsers.has(userIdValue)) {
+              throw new AppError('Todos los jugadores deben pertenecer al grupo', 400);
+            }
+            return {
+              user: new mongoose.Types.ObjectId(userIdValue),
+              stats: typeof player === 'object' ? player.stats || {} : {},
+            };
+          } else if (guestIdValue) {
+            if (!allowedGuests.has(guestIdValue)) {
+              throw new AppError('Todos los invitados deben pertenecer al grupo', 400);
+            }
+            return {
+              guest: new mongoose.Types.ObjectId(guestIdValue),
+              stats: typeof player === 'object' ? player.stats || {} : {},
+            };
+          } else {
+            throw new AppError('Cada jugador debe ser un usuario o invitado', 400);
           }
-
-          return {
-            user: new mongoose.Types.ObjectId(userIdValue),
-            stats: typeof player === 'object' ? player.stats || {} : {},
-          };
         }),
       };
     });
