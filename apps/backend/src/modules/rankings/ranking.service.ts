@@ -60,6 +60,57 @@ export class RankingService {
   }
 
   /**
+   * Initialize ranking for a guest in a group
+   */
+  async initializeGuestRanking(guestId: string, groupId: string): Promise<IRanking> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Group not found', 404);
+    }
+
+    const existingRanking = await Ranking.findOne({ guest: guestId, group: groupId });
+    if (existingRanking) {
+      return existingRanking;
+    }
+
+    const rankingData: Record<string, unknown> = {
+      guest: guestId,
+      group: groupId,
+      rankingType: group.rankingConfig.mode,
+      stats: {
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        winRate: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+      },
+    };
+
+    if (group.rankingConfig.mode === 'elo') {
+      rankingData.elo = {
+        rating: group.rankingConfig.eloSettings?.initialRating || 1200,
+        peak: group.rankingConfig.eloSettings?.initialRating || 1200,
+        history: [],
+      };
+    } else {
+      rankingData.points = {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        history: [],
+      };
+    }
+
+    const ranking = await Ranking.create(rankingData);
+    logger.info(`Ranking initialized for guest ${guestId} in group ${groupId}`);
+
+    return ranking;
+  }
+
+  /**
    * Update rankings after a match completes
    */
   async updateRankingsAfterMatch(matchId: string): Promise<void> {
@@ -95,16 +146,30 @@ export class RankingService {
       const isDraw = match.winner === undefined || match.winner === null;
 
       for (const player of team.players) {
-        // Skip guests - they don't have rankings
-        if (!player.user) continue;
+        let ranking: any;
 
-        let ranking: any = await Ranking.findOne({
-          user: player.user,
-          group: group._id,
-        });
+        if (player.user) {
+          // User ranking
+          ranking = await Ranking.findOne({
+            user: player.user,
+            group: group._id,
+          });
 
-        if (!ranking) {
-          ranking = await this.initializeRanking(player.user.toString(), group._id);
+          if (!ranking) {
+            ranking = await this.initializeRanking(player.user.toString(), group._id);
+          }
+        } else if (player.guest) {
+          // Guest ranking
+          ranking = await Ranking.findOne({
+            guest: player.guest,
+            group: group._id,
+          });
+
+          if (!ranking) {
+            ranking = await this.initializeGuestRanking(player.guest.toString(), group._id);
+          }
+        } else {
+          continue; // Skip if neither user nor guest
         }
 
         const currentRating = ranking.elo!.rating;
@@ -159,16 +224,30 @@ export class RankingService {
       const isDraw = match.winner === undefined || match.winner === null;
 
       for (const player of team.players) {
-        // Skip guests - they don't have rankings
-        if (!player.user) continue;
+        let ranking: any;
 
-        let ranking: any = await Ranking.findOne({
-          user: player.user,
-          group: group._id,
-        });
+        if (player.user) {
+          // User ranking
+          ranking = await Ranking.findOne({
+            user: player.user,
+            group: group._id,
+          });
 
-        if (!ranking) {
-          ranking = await this.initializeRanking(player.user.toString(), group._id);
+          if (!ranking) {
+            ranking = await this.initializeRanking(player.user.toString(), group._id);
+          }
+        } else if (player.guest) {
+          // Guest ranking
+          ranking = await Ranking.findOne({
+            guest: player.guest,
+            group: group._id,
+          });
+
+          if (!ranking) {
+            ranking = await this.initializeGuestRanking(player.guest.toString(), group._id);
+          }
+        } else {
+          continue; // Skip if neither user nor guest
         }
 
         let pointsEarned = 0;
@@ -236,13 +315,22 @@ export class RankingService {
     for (let i = 0; i < match.teams.length; i++) {
       if (i !== teamIndex) {
         for (const player of match.teams[i].players) {
-          // Skip guests - they don't have rankings
-          if (!player.user) continue;
+          let ranking: any;
 
-          const ranking = await Ranking.findOne({
-            user: player.user,
-            group: groupId,
-          });
+          if (player.user) {
+            ranking = await Ranking.findOne({
+              user: player.user,
+              group: groupId,
+            });
+          } else if (player.guest) {
+            ranking = await Ranking.findOne({
+              guest: player.guest,
+              group: groupId,
+            });
+          } else {
+            continue; // Skip if neither user nor guest
+          }
+
           ratings.push(ranking?.elo?.rating || 1200);
         }
       }
@@ -302,6 +390,7 @@ export class RankingService {
       .skip((page - 1) * limit)
       .limit(limit)
       .populate('user', 'username displayName avatar')
+      .populate('guest', 'name email')
       .lean();
 
     const total = await Ranking.countDocuments({ group: groupId, isActive: true });

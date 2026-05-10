@@ -2,7 +2,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IRanking extends Document {
   _id: mongoose.Types.ObjectId;
-  user: mongoose.Types.ObjectId;
+  user?: mongoose.Types.ObjectId;
+  guest?: mongoose.Types.ObjectId;
   group: mongoose.Types.ObjectId;
   rankingType: 'elo' | 'points';
   
@@ -57,7 +58,11 @@ const rankingSchema = new Schema<IRanking>(
     user: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      index: true,
+    },
+    guest: {
+      type: Schema.Types.ObjectId,
+      ref: 'Guest',
       index: true,
     },
     group: {
@@ -184,11 +189,21 @@ const rankingSchema = new Schema<IRanking>(
 );
 
 // Compound indexes
-rankingSchema.index({ user: 1, group: 1 }, { unique: true });
+rankingSchema.index({ user: 1, group: 1 }, { unique: true, sparse: true });
+rankingSchema.index({ guest: 1, group: 1 }, { unique: true, sparse: true });
 rankingSchema.index({ group: 1, 'elo.rating': -1 });
 rankingSchema.index({ group: 1, 'points.total': -1 });
 rankingSchema.index({ group: 1, 'stats.winRate': -1 });
 rankingSchema.index({ isActive: 1 });
+
+// Validate that at least user or guest is present
+rankingSchema.pre('save', function (next) {
+  if (!this.user && !this.guest) {
+    next(new Error('Ranking must have either user or guest'));
+  } else {
+    next();
+  }
+});
 
 // Calculate win rate before saving
 rankingSchema.pre('save', function (next) {

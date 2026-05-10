@@ -185,7 +185,12 @@ export default function GroupDetailPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-zinc-800/30">
-                  {rankings.map((entry: any, index: number) => (
+                  {rankings.map((entry: any, index: number) => {
+                    const isGuest = !!entry.guest;
+                    const displayName = isGuest ? entry.guest.name : entry.user.username;
+                    const displayInitial = displayName[0].toUpperCase();
+                    
+                    return (
                     <div 
                       key={entry._id} 
                       className={`flex items-center justify-between p-7 transition-all group hover:bg-zinc-50/5 ${
@@ -202,24 +207,32 @@ export default function GroupDetailPage() {
                         </div>
                         
                         <div className="relative">
-                          <div className={`w-16 h-16 rounded-2xl bg-zinc-950 border-2 flex items-center justify-center font-black text-2xl text-zinc-100 transition-all group-hover:-rotate-3 group-hover:border-blue-500 ${
-                            index === 0 ? 'border-yellow-500 shadow-2xl shadow-yellow-500/20' : 'border-zinc-800'
+                          <div className={`w-16 h-16 rounded-2xl bg-zinc-950 border-2 flex items-center justify-center font-black text-2xl text-zinc-100 transition-all group-hover:-rotate-3 ${
+                            isGuest ? 'border-purple-800/50 group-hover:border-purple-500/50' :
+                            index === 0 ? 'border-yellow-500 shadow-2xl shadow-yellow-500/20 group-hover:border-blue-500' : 'border-zinc-800 group-hover:border-blue-500/50'
                           }`}>
-                            {entry.user.username[0].toUpperCase()}
+                            {displayInitial}
                           </div>
                           {index === 0 && (
                             <div className="absolute -top-3 -right-3 bg-yellow-500 rounded-xl p-2 shadow-2xl rotate-12">
                               <TrophyIcon className="w-4 h-4 text-zinc-950" />
                             </div>
                           )}
+                          {isGuest && (
+                            <div className="absolute -bottom-1 -right-1 bg-purple-500/20 rounded-lg p-1">
+                              <div className="w-1.5 h-1.5 bg-purple-400 rounded-full" />
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-col">
-                          <span className="font-black text-2xl text-zinc-100 group-hover:text-blue-400 transition-colors uppercase italic tracking-tighter leading-none mb-1">
-                            {entry.user.username}
+                          <span className={`font-black text-2xl group-hover:text-blue-400 transition-colors uppercase italic tracking-tighter leading-none mb-1 ${
+                            isGuest ? 'text-purple-400' : 'text-zinc-100'
+                          }`}>
+                            {displayName}
                           </span>
                           <span className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                             Veteranía <span className="w-1 h-1 bg-zinc-700 rounded-full" /> {new Date(entry.createdAt).toLocaleDateString()}
+                             {isGuest ? 'Invitado' : 'Miembro'} <span className="w-1 h-1 bg-zinc-700 rounded-full" /> {new Date(entry.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
@@ -241,7 +254,8 @@ export default function GroupDetailPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
