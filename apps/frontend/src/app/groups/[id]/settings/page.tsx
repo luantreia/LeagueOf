@@ -42,6 +42,8 @@ export default function GroupSettingsPage() {
     phone: '',
   });
 
+  const [activeSection, setActiveSection] = useState<'profile' | 'members' | 'ranking'>('profile');
+
   const { data: response, isLoading } = useQuery({
     queryKey: ['group', id],
     queryFn: () => apiClient.getGroup(id as string),
@@ -193,15 +195,36 @@ export default function GroupSettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Navigation Sidebar */}
         <div className="lg:col-span-1 space-y-2">
-          <div className="p-4 bg-blue-600/10 text-blue-400 rounded-2xl border border-blue-500/20 flex items-center gap-3 font-black uppercase italic text-xs tracking-wider">
-            <Cog6ToothIcon className="w-5 h-5 shadow-blue-500/50" />
+          <div 
+            onClick={() => setActiveSection('profile')}
+            className={`p-4 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider cursor-pointer ${
+              activeSection === 'profile'
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+                : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+            }`}
+          >
+            <Cog6ToothIcon className="w-5 h-5" />
             <span>Perfil del Grupo</span>
           </div>
-          <div className="p-4 text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300 rounded-2xl transition-all flex items-center gap-3 cursor-not-allowed opacity-40 font-bold uppercase italic text-xs tracking-wider">
+          <div 
+            onClick={() => setActiveSection('members')}
+            className={`p-4 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider cursor-pointer ${
+              activeSection === 'members'
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+                : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+            }`}
+          >
             <ShieldCheckIcon className="w-5 h-5" />
             <span>Roles y Miembros</span>
           </div>
-          <div className="p-4 text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300 rounded-2xl transition-all flex items-center gap-3 cursor-not-allowed opacity-40 font-bold uppercase italic text-xs tracking-wider">
+          <div 
+            onClick={() => setActiveSection('ranking')}
+            className={`p-4 rounded-2xl transition-all flex items-center gap-3 font-black uppercase italic text-xs tracking-wider cursor-pointer ${
+              activeSection === 'ranking'
+                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20'
+                : 'text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300'
+            }`}
+          >
             <TrophyIcon className="w-5 h-5" />
             <span>Ajustes de Ranking</span>
           </div>
@@ -220,6 +243,8 @@ export default function GroupSettingsPage() {
 
         {/* Form Content */}
         <div className="lg:col-span-3 space-y-8">
+          {activeSection === 'profile' && (
+            <>
           <Card className="bg-zinc-900/60 border-zinc-800 shadow-2xl">
             <CardHeader className="border-b border-zinc-800/50 mb-6 bg-zinc-800/20">
               <CardTitle className="text-xl uppercase italic">Identidad</CardTitle>
@@ -411,6 +436,199 @@ export default function GroupSettingsPage() {
               <p className="text-xs text-zinc-400 font-medium leading-relaxed">Cambiar el <span className="text-yellow-500/80 font-bold">@handle</span> invalidará permanentemente todos los enlaces de invitación compartidos previamente.</p>
             </div>
           </div>
+            </>
+          )}
+
+          {activeSection === 'members' && (
+            <>
+              <Card className="bg-zinc-900/60 border-zinc-800 shadow-2xl">
+                <CardHeader className="border-b border-zinc-800/50 mb-6 bg-zinc-800/20">
+                  <CardTitle className="text-xl uppercase italic">Roles y Miembros</CardTitle>
+                  <CardDescription className="text-zinc-400">Gestiona los roles y permisos de los miembros de tu comunidad.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {group.members?.map((member: any) => (
+                    <div key={member.user._id} className="flex items-center justify-between p-4 bg-zinc-950/40 rounded-xl border border-zinc-800">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center font-black text-zinc-300">
+                          {member.user.username[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-zinc-100">{member.user.username}</p>
+                          <p className="text-xs text-zinc-500">{member.user.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={member.role || 'member'}
+                          onChange={(e) => {
+                            // TODO: Implement role change mutation
+                            console.log('Change role for', member.user._id, 'to', e.target.value);
+                          }}
+                          className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300"
+                          disabled={member.user._id === group.owner._id}
+                        >
+                          <option value="owner">Owner</option>
+                          <option value="admin">Admin</option>
+                          <option value="moderator">Moderador</option>
+                          <option value="member">Miembro</option>
+                        </select>
+                        {member.user._id !== group.owner._id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`¿Expulsar a ${member.user.username}?`)) {
+                                // TODO: Implement remove member mutation
+                                console.log('Remove member', member.user._id);
+                              }
+                            }}
+                            className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            <TrashIcon className="w-5 h-5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {(!group.members || group.members.length === 0) && (
+                    <div className="text-center py-8 text-zinc-500">
+                      <ShieldCheckIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">No hay miembros en este grupo</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {activeSection === 'ranking' && (
+            <>
+              <Card className="bg-zinc-900/60 border-zinc-800 shadow-2xl">
+                <CardHeader className="border-b border-zinc-800/50 mb-6 bg-zinc-800/20">
+                  <CardTitle className="text-xl uppercase italic">Ajustes de Ranking</CardTitle>
+                  <CardDescription className="text-zinc-400">Configura el sistema de rankings y puntuación de tu comunidad.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  <div className="space-y-3">
+                    <label className="text-[11px] font-black text-zinc-500 ml-1 uppercase tracking-[0.2em]">Sistema de Ranking</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // TODO: Implement ranking mode change
+                          console.log('Change to ELO');
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          group.rankingConfig?.mode === 'elo'
+                            ? 'border-blue-600 bg-blue-600/5'
+                            : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/40'
+                        }`}
+                      >
+                        <p className="font-bold text-zinc-100">ELO</p>
+                        <p className="text-xs text-zinc-500 mt-1">Sistema de rating dinámico</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // TODO: Implement ranking mode change
+                          console.log('Change to Points');
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          group.rankingConfig?.mode === 'points'
+                            ? 'border-blue-600 bg-blue-600/5'
+                            : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/40'
+                        }`}
+                      >
+                        <p className="font-bold text-zinc-100">Puntos</p>
+                        <p className="text-xs text-zinc-500 mt-1">Sistema acumulativo</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {group.rankingConfig?.mode === 'elo' && (
+                    <div className="space-y-4 p-4 bg-zinc-950/40 rounded-xl border border-zinc-800">
+                      <h3 className="font-bold text-zinc-300 uppercase tracking-wider text-sm">Configuración ELO</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">K-Factor</label>
+                          <Input
+                            type="number"
+                            defaultValue={group.rankingConfig.eloSettings?.kFactor || 32}
+                            className="bg-zinc-900 border-zinc-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Rating Inicial</label>
+                          <Input
+                            type="number"
+                            defaultValue={group.rankingConfig.eloSettings?.initialRating || 1200}
+                            className="bg-zinc-900 border-zinc-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Rating Mínimo</label>
+                          <Input
+                            type="number"
+                            defaultValue={group.rankingConfig.eloSettings?.minRating || 0}
+                            className="bg-zinc-900 border-zinc-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {group.rankingConfig?.mode === 'points' && (
+                    <div className="space-y-4 p-4 bg-zinc-950/40 rounded-xl border border-zinc-800">
+                      <h3 className="font-bold text-zinc-300 uppercase tracking-wider text-sm">Configuración de Puntos</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Puntos Victoria</label>
+                          <Input
+                            type="number"
+                            defaultValue={group.rankingConfig.pointsSettings?.winPoints || 3}
+                            className="bg-zinc-900 border-zinc-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Puntos Derrota</label>
+                          <Input
+                            type="number"
+                            defaultValue={group.rankingConfig.pointsSettings?.lossPoints || -1}
+                            className="bg-zinc-900 border-zinc-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Puntos Empate</label>
+                          <Input
+                            type="number"
+                            defaultValue={group.rankingConfig.pointsSettings?.drawPoints || 1}
+                            className="bg-zinc-900 border-zinc-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
+                    <h3 className="font-bold text-red-500 uppercase tracking-wider text-sm mb-2">Zona de Peligro</h3>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (confirm('¿Estás seguro de resetear todos los rankings? Esta acción no se puede deshacer.')) {
+                          // TODO: Implement reset rankings mutation
+                          console.log('Reset rankings');
+                        }
+                      }}
+                      className="border-red-500/50 text-red-500 hover:bg-red-500/10"
+                    >
+                      Resetear Todos los Rankings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
     </div>
