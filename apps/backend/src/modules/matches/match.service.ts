@@ -56,6 +56,7 @@ export class MatchService {
       .populate('group', 'name handle rankingConfig')
       .populate('createdBy', 'username displayName avatar')
       .populate('teams.players.user', 'username displayName avatar')
+      .populate('teams.players.guest', 'name email')
       .sort({ createdAt: -1 })
       .limit(Number(params.limit) || 50);
 
@@ -95,7 +96,8 @@ export class MatchService {
     const match = await Match.findById(id)
       .populate('group', 'name handle rankingConfig')
       .populate('createdBy', 'username displayName avatar')
-      .populate('teams.players.user', 'username displayName avatar');
+      .populate('teams.players.user', 'username displayName avatar')
+      .populate('teams.players.guest', 'name email');
 
     if (!match) {
       throw new AppError('Partida no encontrada', 404);
