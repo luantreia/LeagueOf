@@ -177,6 +177,46 @@ export class ApiClient {
     return response.data;
   }
 
+  async inviteUser(groupId: string, email: string) {
+    const response = await this.client.post(`/api/groups/${groupId}/invite`, { email });
+    return response.data;
+  }
+
+  async acceptInvitation(groupId: string, invitationId: string) {
+    const response = await this.client.post(`/api/groups/${groupId}/invitations/${invitationId}/accept`);
+    return response.data;
+  }
+
+  async rejectInvitation(groupId: string, invitationId: string) {
+    const response = await this.client.post(`/api/groups/${groupId}/invitations/${invitationId}/reject`);
+    return response.data;
+  }
+
+  async cancelInvitation(groupId: string, invitationId: string) {
+    const response = await this.client.post(`/api/groups/${groupId}/invitations/${invitationId}/cancel`);
+    return response.data;
+  }
+
+  async searchGroups(query: string, gameType?: string, page = 1, limit = 20) {
+    const response = await this.client.get('/api/groups/search', {
+      params: { query, gameType, page, limit },
+    });
+    return response.data;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await this.client.post('/api/users/me/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  }
+
+  async deactivateAccount() {
+    const response = await this.client.post('/api/users/me/deactivate');
+    return response.data;
+  }
+
   // Rankings
   async getLeaderboard(groupId: string, page = 1, limit = 50, gameType?: string) {
     const response = await this.client.get(`/api/rankings/group/${groupId}`, {
