@@ -33,6 +33,7 @@ export default function GroupLobbyPage() {
   const [teamAssignments, setTeamAssignments] = useState<Record<string, number>>({});
   const [scores, setScores] = useState<number[]>([]);
   const [winner, setWinner] = useState<number | 'draw'>(0);
+  const [excludedPlayers, setExcludedPlayers] = useState<Set<string>>(new Set());
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
@@ -73,14 +74,18 @@ export default function GroupLobbyPage() {
     if (!allPlayers.length || Object.keys(teamAssignments).length > 0) return;
 
     const nextAssignments: Record<string, number> = {};
-    allPlayers.forEach((player: any, index: number) => {
-      nextAssignments[player.id] = index % teamCount;
+    let teamIndex = 0;
+    allPlayers.forEach((player: any) => {
+      if (!excludedPlayers.has(player.id)) {
+        nextAssignments[player.id] = teamIndex % teamCount;
+        teamIndex++;
+      }
     });
     setTeamAssignments(nextAssignments);
     
     // Inicializar scores para cada equipo
     setScores(new Array(teamCount).fill(0));
-  }, [allPlayers, teamAssignments, teamCount]);
+  }, [allPlayers, teamAssignments, teamCount, excludedPlayers]);
 
   useEffect(() => {
     if (group && !matchName) {
@@ -112,6 +117,8 @@ export default function GroupLobbyPage() {
       // Reasignar jugadores
       const nextAssignments: Record<string, number> = {};
       allPlayers.forEach((player: any, playerIndex: number) => {
+        if (excludedPlayers.has(player.id)) return;
+        
         const currentAssignment = teamAssignments[player.id];
         if (currentAssignment === indexToRemove) {
           nextAssignments[player.id] = playerIndex % newTeamCount;
@@ -123,6 +130,22 @@ export default function GroupLobbyPage() {
       });
       setTeamAssignments(nextAssignments);
     }
+  };
+
+  const togglePlayerExclusion = (playerId: string) => {
+    const newExcluded = new Set(excludedPlayers);
+    if (newExcluded.has(playerId)) {
+      newExcluded.delete(playerId);
+      // Asignar al siguiente equipo disponible
+      const teamIndex = Object.keys(teamAssignments).length % teamCount;
+      setTeamAssignments({ ...teamAssignments, [playerId]: teamIndex });
+    } else {
+      newExcluded.add(playerId);
+      const newAssignments = { ...teamAssignments };
+      delete newAssignments[playerId];
+      setTeamAssignments(newAssignments);
+    }
+    setExcludedPlayers(newExcluded);
   };
 
   const updateTeamName = (index: number, name: string) => {
@@ -461,12 +484,48 @@ export default function GroupLobbyPage() {
                               </option>
                             ))}
                           </select>
+                          <button
+                            onClick={() => togglePlayerExclusion(player.id)}
+                            className="text-zinc-500 hover:text-red-400 transition-colors"
+                            title="Eliminar del partido"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       ))}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Jugadores excluidos del partido */}
+            {excludedPlayers.size > 0 && (
+              <div className="mt-4 p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-red-400">
+                    Jugadores excluidos ({excludedPlayers.size})
+                  </label>
+                </div>
+                <div className="space-y-1">
+                  {allPlayers
+                    .filter((player: any) => excludedPlayers.has(player.id))
+                    .map((player: any) => (
+                      <div key={player.id} className="flex items-center justify-between text-sm bg-zinc-900 rounded px-3 py-2 gap-2">
+                        <span className="text-zinc-400 flex-1">{player.name}</span>
+                        <span className="text-[10px] text-zinc-600">
+                          {player.type === 'guest' ? '(Invitado)' : '(Miembro)'}
+                        </span>
+                        <button
+                          onClick={() => togglePlayerExclusion(player.id)}
+                          className="text-emerald-500 hover:text-emerald-400 transition-colors text-xs font-black"
+                        >
+                          + Agregar
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
