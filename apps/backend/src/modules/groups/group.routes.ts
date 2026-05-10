@@ -18,5 +18,10 @@ router.patch('/:id/ranking-config', authenticate, controller.updateRankingConfig
 router.post('/:id/reset-rankings', authenticate, controller.resetRankings);
 router.post('/:id/supported-games', authenticate, controller.addSupportedGame);
 router.delete('/:id/supported-games/:game', authenticate, controller.removeSupportedGame);
+router.post('/:id/invite', authenticate, controller.inviteUser);
+router.post('/:id/invitations/:invitationId/accept', authenticate, controller.acceptInvitation);
+router.post('/:id/invitations/:invitationId/reject', authenticate, controller.rejectInvitation);
+router.post('/:id/invitations/:invitationId/cancel', authenticate, controller.cancelInvitation);
+router.get('/search', authenticate, controller.searchGroups);
 
 export const groupRoutes = router;

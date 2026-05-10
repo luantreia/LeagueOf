@@ -1,5 +1,6 @@
 import { Group, IGroup } from './group.model';
 import { Ranking } from '@/modules/rankings/ranking.model';
+import { User } from '@/modules/users/user.model';
 import { AppError } from '@/shared/utils/app-error';
 import mongoose from 'mongoose';
 
@@ -319,6 +320,170 @@ export class GroupService {
 
     group.supportedGames.splice(index, 1);
     return await group.save();
+  }
+
+  async inviteUser(groupId: string, email: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('Solo el owner puede enviar invitaciones', 403);
+    }
+
+    // Validar que no haya una invitación pendiente para el mismo email
+    const existingInvitation = group.invitations.find((inv) => 
+      inv.email === email && 
+      inv.status === 'pending' && 
+      inv.expiresAt > new Date()
+    );
+    if (existingInvitation) {
+      throw new AppError('Ya existe una invitación pendiente para este email', 400);
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new AppError('Email inválido', 400);
+    }
+
+    // Crear invitación con expiración de 7 días
+    const invitation = {
+      email: email.toLowerCase(),
+      invitedBy: new mongoose.Types.ObjectId(userId),
+      status: 'pending',
+      sentAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
+    };
+
+    group.invitations.push(invitation as any);
+    return await group.save();
+  }
+
+  async acceptInvitation(groupId: string, invitationId: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    const invitation = group.invitations.find((inv) => inv._id.toString() === invitationId);
+    if (!invitation) {
+      throw new AppError('Invitación no encontrada', 404);
+    }
+
+    if (invitation.status !== 'pending') {
+      throw new AppError('Esta invitación ya no es válida', 400);
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      throw new AppError('La invitación ha expirado', 400);
+    }
+
+    // Validar que el email del usuario coincida con la invitación
+    const user = await User.findById(userId);
+    if (!user || user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new AppError('Esta invitación no es para tu cuenta', 403);
+    }
+
+    // Actualizar estado de la invitación
+    invitation.status = 'accepted';
+    invitation.respondedAt = new Date();
+
+    // Agregar usuario como miembro
+    const existingMember = group.members.find((m) => m.user.toString() === userId);
+    if (existingMember) {
+      throw new AppError('Ya eres miembro de este grupo', 400);
+    }
+
+    group.members.push({
+      user: new mongoose.Types.ObjectId(userId),
+      role: 'member',
+      joinedAt: new Date(),
+    });
+
+    await this.ensureRanking(userId, group);
+    return await group.save();
+  }
+
+  async rejectInvitation(groupId: string, invitationId: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    const invitation = group.invitations.find((inv) => inv._id.toString() === invitationId);
+    if (!invitation) {
+      throw new AppError('Invitación no encontrada', 404);
+    }
+
+    if (invitation.status !== 'pending') {
+      throw new AppError('Esta invitación ya no es válida', 400);
+    }
+
+    // Validar que el email del usuario coincida con la invitación
+    const user = await User.findById(userId);
+    if (!user || user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new AppError('Esta invitación no es para tu cuenta', 403);
+    }
+
+    invitation.status = 'rejected';
+    invitation.respondedAt = new Date();
+
+    return await group.save();
+  }
+
+  async cancelInvitation(groupId: string, invitationId: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('Solo el owner puede cancelar invitaciones', 403);
+    }
+
+    const invitation = group.invitations.find((inv) => inv._id.toString() === invitationId);
+    if (!invitation) {
+      throw new AppError('Invitación no encontrada', 404);
+    }
+
+    if (invitation.status !== 'pending') {
+      throw new AppError('Solo se pueden cancelar invitaciones pendientes', 400);
+    }
+
+    invitation.status = 'cancelled';
+    invitation.respondedAt = new Date();
+
+    return await group.save();
+  }
+
+  async searchGroups(query: string, gameType?: string, page: number = 1, limit: number = 20): Promise<{ groups: IGroup[]; total: number }> {
+    const searchQuery: any = {
+      isActive: true,
+      'settings.isPublic': true,
+    };
+
+    // Búsqueda por texto en nombre, descripción y tags
+    if (query && query.trim()) {
+      searchQuery.$text = { $search: query.trim() };
+    }
+
+    // Filtrar por juego soportado
+    if (gameType && gameType.trim()) {
+      searchQuery.supportedGames = gameType.trim();
+    }
+
+    const groups = await Group.find(searchQuery)
+      .populate('owner', 'username displayName avatar')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    const total = await Group.countDocuments(searchQuery);
+
+    return { groups: groups as unknown as IGroup[], total };
   }
 
   private async ensureRanking(userId: string, group: IGroup): Promise<void> {

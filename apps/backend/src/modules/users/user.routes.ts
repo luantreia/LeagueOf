@@ -1,19 +1,14 @@
 import { Router } from 'express';
 import { authenticate } from '@/core/middleware/auth';
+import { UserController } from './user.controller';
 
 const router = Router();
+const userController = new UserController();
 
-// Placeholder routes - implement controllers as needed
-router.get('/', authenticate, async (_req, res) => {
-  res.json({ message: 'User routes' });
-});
-
-router.get('/:id', authenticate, async (_req, res) => {
-  res.json({ message: 'Get user by ID' });
-});
-
-router.patch('/:id', authenticate, async (_req, res) => {
-  res.json({ message: 'Update user' });
-});
+router.get('/me', authenticate, userController.getMe);
+router.patch('/me', authenticate, userController.updateProfile);
+router.post('/me/change-password', authenticate, userController.changePassword);
+router.post('/me/deactivate', authenticate, userController.deactivateAccount);
+router.get('/:id', authenticate, userController.getUserById);
 
 export const userRoutes = router;

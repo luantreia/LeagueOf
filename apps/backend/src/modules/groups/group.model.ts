@@ -11,6 +11,15 @@ export interface IGroup extends Document {
     role: 'owner' | 'admin' | 'member';
     joinedAt: Date;
   }>;
+  invitations: Array<{
+    _id: mongoose.Types.ObjectId;
+    email: string;
+    invitedBy: mongoose.Types.ObjectId;
+    status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+    sentAt: Date;
+    respondedAt?: Date;
+    expiresAt: Date;
+  }>;
   settings: {
     isPublic: boolean;
     maxMembers: number;
@@ -89,6 +98,37 @@ const groupSchema = new Schema<IGroup>(
         joinedAt: {
           type: Date,
           default: Date.now,
+        },
+      },
+    ],
+    invitations: [
+      {
+        email: {
+          type: String,
+          required: true,
+          lowercase: true,
+          trim: true,
+        },
+        invitedBy: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ['pending', 'accepted', 'rejected', 'cancelled'],
+          default: 'pending',
+        },
+        sentAt: {
+          type: Date,
+          default: Date.now,
+        },
+        respondedAt: {
+          type: Date,
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
         },
       },
     ],

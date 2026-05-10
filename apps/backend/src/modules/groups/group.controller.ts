@@ -167,4 +167,72 @@ export class GroupController {
       next(error);
     }
   };
+
+  inviteUser = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user!.id;
+      const { email } = req.body;
+      
+      const group = await this.groupService.inviteUser(groupId, email, userId);
+      ApiResponse.success(res, group, 'Invitation sent successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  acceptInvitation = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const invitationId = req.params.invitationId;
+      const userId = req.user!.id;
+      
+      const group = await this.groupService.acceptInvitation(groupId, invitationId, userId);
+      ApiResponse.success(res, group, 'Invitation accepted successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  rejectInvitation = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const invitationId = req.params.invitationId;
+      const userId = req.user!.id;
+      
+      const group = await this.groupService.rejectInvitation(groupId, invitationId, userId);
+      ApiResponse.success(res, group, 'Invitation rejected successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  cancelInvitation = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const invitationId = req.params.invitationId;
+      const userId = req.user!.id;
+      
+      const group = await this.groupService.cancelInvitation(groupId, invitationId, userId);
+      ApiResponse.success(res, group, 'Invitation cancelled successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  searchGroups = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { query, gameType, page = 1, limit = 20 } = req.query;
+      
+      const result = await this.groupService.searchGroups(
+        query as string,
+        gameType as string,
+        Number(page),
+        Number(limit)
+      );
+      ApiResponse.success(res, result, 'Groups retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }

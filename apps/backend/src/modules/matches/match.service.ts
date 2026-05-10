@@ -138,9 +138,32 @@ export class MatchService {
     const allowedUsers = new Set(group.members.map((member) => member.user.toString()));
     const allowedGuests = new Set(guests.map((guest) => guest._id.toString()));
 
-    const normalizedTeams = data.teams.map((team: any, teamIndex: number) => {
+    // Validar que no haya jugadores duplicados en toda la partida
+    const allPlayerKeys = new Set<string>();
+    data.teams.forEach((team: any, teamIndex: number) => {
       if (!Array.isArray(team.players) || team.players.length === 0) {
         throw new AppError(`El equipo ${teamIndex + 1} no tiene jugadores`, 400);
+      }
+
+      team.players.forEach((player: any) => {
+        const userIdValue = typeof player === 'string' ? player : player.user;
+        const guestIdValue = typeof player === 'string' ? player : player.guest;
+        const playerKey = userIdValue ? `user:${userIdValue}` : `guest:${guestIdValue}`;
+        
+        if (allPlayerKeys.has(playerKey)) {
+          throw new AppError('No puede haber jugadores duplicados en la partida', 400);
+        }
+        allPlayerKeys.add(playerKey);
+      });
+    });
+
+    const normalizedTeams = data.teams.map((team: any, teamIndex: number) => {
+      // Validar score si se proporciona
+      if (team.score !== undefined) {
+        const score = Number(team.score);
+        if (Number.isNaN(score) || score < 0) {
+          throw new AppError(`El score del equipo ${teamIndex + 1} no puede ser negativo`, 400);
+        }
       }
 
       return {
