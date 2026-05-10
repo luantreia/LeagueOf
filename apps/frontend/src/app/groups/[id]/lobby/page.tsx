@@ -178,6 +178,7 @@ export default function GroupLobbyPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['guests', id] });
+      queryClient.refetchQueries({ queryKey: ['guests', id] });
       setGuestName('');
       setGuestEmail('');
       setGuestPhone('');
