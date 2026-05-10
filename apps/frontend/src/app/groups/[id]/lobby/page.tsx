@@ -16,6 +16,8 @@ import {
   PlayIcon,
   TrophyIcon,
   UserGroupIcon,
+  PlusIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 export default function GroupLobbyPage() {
@@ -26,9 +28,11 @@ export default function GroupLobbyPage() {
 
   const [matchName, setMatchName] = useState('');
   const [gameType, setGameType] = useState('League of Legends');
+  const [teamCount, setTeamCount] = useState(2);
+  const [teamNames, setTeamNames] = useState(['Equipo Azul', 'Equipo Rojo']);
   const [teamAssignments, setTeamAssignments] = useState<Record<string, number>>({});
-  const [scores, setScores] = useState([0, 0]);
-  const [winner, setWinner] = useState<'0' | '1' | 'draw'>('0');
+  const [scores, setScores] = useState<number[]>([]);
+  const [winner, setWinner] = useState<number | 'draw'>(0);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
 
   const { data: groupResponse, isLoading } = useQuery({
@@ -67,10 +71,13 @@ export default function GroupLobbyPage() {
 
     const nextAssignments: Record<string, number> = {};
     allPlayers.forEach((player: any, index: number) => {
-      nextAssignments[player.id] = index % 2;
+      nextAssignments[player.id] = index % teamCount;
     });
     setTeamAssignments(nextAssignments);
-  }, [allPlayers, teamAssignments]);
+    
+    // Inicializar scores para cada equipo
+    setScores(new Array(teamCount).fill(0));
+  }, [allPlayers, teamAssignments, teamCount]);
 
   useEffect(() => {
     if (group && !matchName) {
@@ -80,10 +87,51 @@ export default function GroupLobbyPage() {
 
   const isMember = members.some((member: any) => member.user._id === user?._id);
 
+  // Funciones para gestionar equipos dinámicamente
+  const addTeam = () => {
+    if (teamCount < 8) { // Límite máximo de 8 equipos
+      setTeamCount(teamCount + 1);
+      setTeamNames([...teamNames, `Equipo ${teamCount + 1}`]);
+      setScores([...scores, 0]);
+    }
+  };
+
+  const removeTeam = (indexToRemove: number) => {
+    if (teamCount > 2) { // Mínimo 2 equipos
+      const newTeamCount = teamCount - 1;
+      const newTeamNames = teamNames.filter((_, i) => i !== indexToRemove);
+      const newScores = scores.filter((_, i) => i !== indexToRemove);
+      
+      setTeamCount(newTeamCount);
+      setTeamNames(newTeamNames);
+      setScores(newScores);
+      
+      // Reasignar jugadores
+      const nextAssignments: Record<string, number> = {};
+      allPlayers.forEach((player: any, playerIndex: number) => {
+        const currentAssignment = teamAssignments[player.id];
+        if (currentAssignment === indexToRemove) {
+          nextAssignments[player.id] = playerIndex % newTeamCount;
+        } else if (currentAssignment > indexToRemove) {
+          nextAssignments[player.id] = currentAssignment - 1;
+        } else {
+          nextAssignments[player.id] = currentAssignment;
+        }
+      });
+      setTeamAssignments(nextAssignments);
+    }
+  };
+
+  const updateTeamName = (index: number, name: string) => {
+    const newTeamNames = [...teamNames];
+    newTeamNames[index] = name;
+    setTeamNames(newTeamNames);
+  };
+
   const createMatchMutation = useMutation({
     mutationFn: () => {
-      const teams = [0, 1].map((teamIndex) => ({
-        name: teamIndex === 0 ? 'Equipo Azul' : 'Equipo Rojo',
+      const teams = Array.from({ length: teamCount }, (_, teamIndex) => ({
+        name: teamNames[teamIndex] || `Equipo ${teamIndex + 1}`,
         players: allPlayers
           .filter((player: any) => teamAssignments[player.id] === teamIndex)
           .map((player: any) => ({
@@ -129,9 +177,9 @@ export default function GroupLobbyPage() {
   });
 
   const canCreateMatch = isMember && !activeMatch && allPlayers.length >= 2;
-  const hasBothTeams = [0, 1].every((teamIndex) =>
-    allPlayers.some((player: any) => teamAssignments[player.id] === teamIndex)
-  );
+  const hasBothTeams = Array.from({ length: teamCount }, (_, i) => 
+    allPlayers.some((player: any) => teamAssignments[player.id] === i)
+  ).every(Boolean);
 
   if (isLoading) {
     return (
@@ -147,188 +195,279 @@ export default function GroupLobbyPage() {
         <h1 className="text-3xl font-black text-zinc-100 mb-3">Lobby no disponible</h1>
         <p className="text-zinc-500 mb-8">Tenés que pertenecer al grupo para crear o registrar partidas.</p>
         <Link href={`/groups/${id}`}>
-          <Button variant="outline">Volver al grupo</Button>
+          <Button className="bg-blue-600 hover:bg-blue-500">
+            Volver al grupo
+          </Button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-800 pb-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <Link href={`/groups/${id}`} className="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-200 mb-4 text-sm font-bold">
-            <ArrowLeftIcon className="w-4 h-4" />
-            Volver al grupo
-          </Link>
-          <h1 className="text-4xl sm:text-6xl font-black italic uppercase tracking-tighter text-zinc-50">
-            Lobby
-          </h1>
-          <p className="text-zinc-500 mt-2">
-            Armá equipos, jugá la partida y registrá el resultado para mover el ranking de {group.name}.
+          <div className="flex items-center gap-4 mb-4">
+            <div className="h-10 w-2 bg-blue-600 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.6)]" />
+            <h1 className="text-4xl sm:text-6xl font-black text-zinc-50 italic tracking-tighter uppercase leading-none">
+              Lobby de {group.name}
+            </h1>
+          </div>
+          <p className="text-zinc-500 max-w-2xl">
+            Organizá partidas competitivas, gestioná equipos y cargá resultados en tiempo real.
           </p>
         </div>
-        <div className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-4 py-2 rounded-xl">
-          Sistema {group.rankingConfig?.mode?.toUpperCase() || 'ELO'}
-        </div>
+        <Link href={`/groups/${id}`}>
+          <Button variant="outline" className="h-12 font-black uppercase">
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
+            Volver al grupo
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          {activeMatch ? (
-            <Card className="bg-zinc-900/60 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <TrophyIcon className="w-6 h-6 text-yellow-500" />
-                  Registrar Resultado
-                </CardTitle>
-                <CardDescription>{activeMatch.name} está en curso.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {activeMatch.teams.map((team: any, index: number) => (
-                    <div key={team.name} className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-black uppercase italic text-zinc-100">{team.name}</h3>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={scores[index]}
-                          onChange={(event) => {
-                            const nextScores = [...scores];
-                            nextScores[index] = Number(event.target.value);
-                            setScores(nextScores);
-                          }}
-                          className="w-24 text-center"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        {team.players.map((player: any) => (
-                          <div key={player.user._id} className="text-sm text-zinc-400 flex items-center gap-2">
-                            <span className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-black text-zinc-200">
-                              {player.user.username[0].toUpperCase()}
-                            </span>
-                            {player.user.username}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Configuración de partida */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <PlayIcon className="w-5 h-5 text-blue-500" />
+              Nueva Partida
+            </CardTitle>
+            <CardDescription>Configurá los detalles de la partida</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Nombre de la partida
+              </label>
+              <Input
+                value={matchName}
+                onChange={(e) => setMatchName(e.target.value)}
+                placeholder="Nombre de la partida"
+                className="h-12"
+              />
+            </div>
 
-                <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5">
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
-                    Resultado
-                  </label>
-                  <select
-                    value={winner}
-                    onChange={(event) => setWinner(event.target.value as '0' | '1' | 'draw')}
-                    className="w-full h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100 font-bold"
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Tipo de juego
+              </label>
+              <select
+                value={gameType}
+                onChange={(e) => setGameType(e.target.value)}
+                className="w-full h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+              >
+                <option value="League of Legends">League of Legends</option>
+                <option value="Valorant">Valorant</option>
+                <option value="CS:GO">CS:GO</option>
+                <option value="Custom">Personalizado</option>
+              </select>
+            </div>
+
+            <Button
+              onClick={() => createMatchMutation.mutate()}
+              isLoading={createMatchMutation.isPending}
+              disabled={!canCreateMatch || !hasBothTeams}
+              className="w-full h-14 bg-blue-600 hover:bg-blue-500 font-black uppercase italic disabled:opacity-50"
+            >
+              {createMatchMutation.isPending ? 'Creando...' : 'Crear Partida'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Gestión de Guests */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <UserGroupIcon className="w-5 h-5 text-purple-500" />
+              Invitar Jugadores
+            </CardTitle>
+            <CardDescription>Invitá jugadores temporales por email o teléfono</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                  Email del jugador
+                </label>
+                <Input
+                  type="email"
+                  placeholder="email@ejemplo.com"
+                  className="h-12"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                  Teléfono del jugador
+                </label>
+                <Input
+                  type="tel"
+                  placeholder="+54 9 1234 5678"
+                  className="h-12"
+                />
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                // TODO: Implementar lógica de invitación
+                toast.success('Invitación enviada (simulado)');
+              }}
+              className="w-full h-12 bg-purple-600 hover:bg-purple-500 font-black uppercase"
+            >
+              Enviar Invitación
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Gestión de equipos */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <UserGroupIcon className="w-5 h-5 text-emerald-500" />
+              Configuración de Equipos
+            </CardTitle>
+            <CardDescription>Administrá los equipos y sus nombres</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Control de cantidad de equipos */}
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Cantidad de equipos: {teamCount}
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  onClick={addTeam}
+                  disabled={teamCount >= 8}
+                  variant="outline"
+                  size="sm"
+                  className="text-emerald-400 border-emerald-800 hover:bg-emerald-900/20"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Nombres de equipos */}
+            <div className="space-y-3">
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Nombres de equipos
+              </label>
+              {teamNames.map((name, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={name}
+                    onChange={(e) => updateTeamName(index, e.target.value)}
+                    placeholder={`Equipo ${index + 1}`}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => removeTeam(index)}
+                    disabled={teamCount <= 2}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-400 border-red-800 hover:bg-red-900/20"
                   >
-                    <option value="0">Gana Equipo Azul</option>
-                    <option value="1">Gana Equipo Rojo</option>
-                    <option value="draw">Empate</option>
-                  </select>
-                </div>
-
-                <Button
-                  onClick={() => completeMatchMutation.mutate()}
-                  isLoading={completeMatchMutation.isPending}
-                  className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 font-black uppercase italic"
-                >
-                  <CheckCircleIcon className="w-5 h-5 mr-2" />
-                  Guardar resultado y actualizar ranking
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="bg-zinc-900/60 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <PlayIcon className="w-6 h-6 text-blue-500" />
-                  Crear Partida
-                </CardTitle>
-                <CardDescription>Configurá una partida rankeada rápida para este grupo.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <Input label="Nombre" value={matchName} onChange={(event) => setMatchName(event.target.value)} />
-                  <Input label="Juego" value={gameType} onChange={(event) => setGameType(event.target.value)} />
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <UserGroupIcon className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">Equipos</h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {[0, 1].map((teamIndex) => (
-                      <div key={teamIndex} className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-5">
-                        <h4 className="font-black uppercase italic text-zinc-100 mb-4">
-                          {teamIndex === 0 ? 'Equipo Azul' : 'Equipo Rojo'}
-                        </h4>
-                        <div className="space-y-2">
-                          {allPlayers.map((player: any) => (
-                            <label key={player.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-900 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`player-${player.id}`}
-                                checked={teamAssignments[player.id] === teamIndex}
-                                onChange={() => setTeamAssignments({
-                                  ...teamAssignments,
-                                  [player.id]: teamIndex,
-                                })}
-                              />
-                              <span className={`text-zinc-300 font-bold ${player.type === 'guest' ? 'text-orange-400' : ''}`}>
-                                {player.name}
-                                {player.type === 'guest' && ' (Invitado)'}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => createMatchMutation.mutate()}
-                  disabled={!canCreateMatch || !hasBothTeams || createMatchMutation.isPending}
-                  isLoading={createMatchMutation.isPending}
-                  className="w-full h-14 bg-blue-600 hover:bg-blue-500 font-black uppercase italic"
-                >
-                  Crear partida rankeada
-                </Button>
-
-                {!hasBothTeams && (
-                  <p className="text-sm text-yellow-500">Cada equipo necesita al menos un jugador.</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <aside className="space-y-6">
-          <Card className="bg-zinc-900/50 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-lg">Historial reciente</CardTitle>
-              <CardDescription>Últimas partidas completadas.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {completedMatches.length === 0 ? (
-                <p className="text-sm text-zinc-500">Todavía no hay partidas completadas.</p>
-              ) : completedMatches.slice(0, 8).map((match: any) => (
-                <div key={match._id} className="border border-zinc-800 rounded-xl p-4 bg-zinc-950/50">
-                  <p className="font-black text-zinc-100 text-sm">{match.name}</p>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {match.teams.map((team: any) => `${team.name} ${team.score}`).join(' vs ')}
-                  </p>
+                    <XMarkIcon className="w-4 h-4" />
+                  </Button>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        </aside>
+            </div>
+
+            {/* Asignación de jugadores */}
+            <div className="space-y-3">
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Asignación de jugadores ({allPlayers.length} disponibles)
+              </label>
+              {Array.from({ length: teamCount }, (_, teamIndex) => (
+                <div key={teamIndex} className="border border-zinc-800 rounded-xl p-4 bg-zinc-950/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-black uppercase text-zinc-100">
+                      {teamNames[teamIndex] || `Equipo ${teamIndex + 1}`}
+                    </h4>
+                    <span className="text-[10px] font-black text-zinc-600">
+                      {allPlayers.filter((p: any) => teamAssignments[p.id] === teamIndex).length} jugadores
+                    </span>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {allPlayers
+                      .filter((player: any) => teamAssignments[player.id] === teamIndex)
+                      .map((player: any) => (
+                        <div key={player.id} className="flex items-center justify-between text-sm bg-zinc-800 rounded px-3 py-2">
+                          <span className="text-zinc-100">{player.name}</span>
+                          <span className="text-[10px] text-zinc-600">
+                            {player.type === 'guest' ? '(Invitado)' : '(Miembro)'}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Partida activa */}
+      {activeMatch && (
+        <Card className="bg-zinc-900/50 border-zinc-800 border-blue-500/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <TrophyIcon className="w-5 h-5 text-yellow-500" />
+              Partida en curso: {activeMatch.name}
+            </CardTitle>
+            <CardDescription>Cargá el resultado cuando finalice</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: teamCount }, (_, teamIndex) => (
+                <div key={teamIndex}>
+                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                    Puntaje - {teamNames[teamIndex] || `Equipo ${teamIndex + 1}`}
+                  </label>
+                  <Input
+                    type="number"
+                    value={scores[teamIndex] || 0}
+                    onChange={(e) => {
+                      const newScores = [...scores];
+                      newScores[teamIndex] = parseInt(e.target.value) || 0;
+                      setScores(newScores);
+                    }}
+                    placeholder="0"
+                    className="h-12"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                Resultado
+              </label>
+              <select
+                value={winner}
+                onChange={(e) => setWinner(e.target.value as number | 'draw')}
+                className="w-full h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100 font-bold"
+              >
+                {Array.from({ length: teamCount }, (_, teamIndex) => (
+                  <option key={teamIndex} value={teamIndex}>
+                    Gana {teamNames[teamIndex] || `Equipo ${teamIndex + 1}`}
+                  </option>
+                ))}
+                <option value="draw">Empate</option>
+              </select>
+            </div>
+
+            <Button
+              onClick={() => completeMatchMutation.mutate()}
+              isLoading={completeMatchMutation.isPending}
+              className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 font-black uppercase italic"
+            >
+              <CheckCircleIcon className="w-5 h-5 mr-2" />
+              {completeMatchMutation.isPending ? 'Guardando...' : 'Cargar Resultado'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
