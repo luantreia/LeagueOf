@@ -44,6 +44,20 @@ export default function GroupSettingsPage() {
 
   const [activeSection, setActiveSection] = useState<'profile' | 'members' | 'ranking'>('profile');
 
+  const [rankingConfig, setRankingConfig] = useState({
+    mode: 'elo' as 'elo' | 'points',
+    eloSettings: {
+      kFactor: 32,
+      initialRating: 1200,
+      minRating: 0,
+    },
+    pointsSettings: {
+      winPoints: 3,
+      lossPoints: -1,
+      drawPoints: 1,
+    },
+  });
+
   const { data: response, isLoading } = useQuery({
     queryKey: ['group', id],
     queryFn: () => apiClient.getGroup(id as string),
@@ -114,6 +128,55 @@ export default function GroupSettingsPage() {
     },
   });
 
+  const updateMemberRoleMutation = useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: string }) =>
+      apiClient.updateMemberRole(id as string, memberId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Rol actualizado');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al actualizar rol';
+      toast.error(msg);
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (memberId: string) => apiClient.removeMember(id as string, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Miembro expulsado');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al expulsar miembro';
+      toast.error(msg);
+    },
+  });
+
+  const updateRankingConfigMutation = useMutation({
+    mutationFn: (config: any) => apiClient.updateRankingConfig(id as string, config),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['group', id] });
+      toast.success('Configuración de ranking actualizada');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al actualizar configuración';
+      toast.error(msg);
+    },
+  });
+
+  const resetRankingsMutation = useMutation({
+    mutationFn: () => apiClient.resetRankings(id as string),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leaderboard', id] });
+      toast.success('Rankings reseteados');
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || 'Error al resetear rankings';
+      toast.error(msg);
+    },
+  });
+
   useEffect(() => {
     if (response?.data) {
         const group = response.data;
@@ -123,6 +186,21 @@ export default function GroupSettingsPage() {
             description: group.description || '',
             isPublic: group.settings?.isPublic ?? true,
         });
+        if (group.rankingConfig) {
+            setRankingConfig({
+                mode: group.rankingConfig.mode || 'elo',
+                eloSettings: group.rankingConfig.eloSettings || {
+                    kFactor: 32,
+                    initialRating: 1200,
+                    minRating: 0,
+                },
+                pointsSettings: group.rankingConfig.pointsSettings || {
+                    winPoints: 3,
+                    lossPoints: -1,
+                    drawPoints: 1,
+                },
+            });
+        }
     }
   }, [response]);
 
@@ -462,11 +540,13 @@ export default function GroupSettingsPage() {
                         <select
                           value={member.role || 'member'}
                           onChange={(e) => {
-                            // TODO: Implement role change mutation
-                            console.log('Change role for', member.user._id, 'to', e.target.value);
+                            updateMemberRoleMutation.mutate({
+                              memberId: member.user._id,
+                              role: e.target.value,
+                            });
                           }}
                           className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300"
-                          disabled={member.user._id === group.owner._id}
+                          disabled={member.user._id === group.owner._id || updateMemberRoleMutation.isPending}
                         >
                           <option value="owner">Owner</option>
                           <option value="admin">Admin</option>
@@ -479,10 +559,10 @@ export default function GroupSettingsPage() {
                             size="sm"
                             onClick={() => {
                               if (confirm(`¿Expulsar a ${member.user.username}?`)) {
-                                // TODO: Implement remove member mutation
-                                console.log('Remove member', member.user._id);
+                                removeMemberMutation.mutate(member.user._id);
                               }
                             }}
+                            disabled={removeMemberMutation.isPending}
                             className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
                           >
                             <TrashIcon className="w-5 h-5" />
@@ -516,11 +596,12 @@ export default function GroupSettingsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          // TODO: Implement ranking mode change
-                          console.log('Change to ELO');
+                          setRankingConfig({ ...rankingConfig, mode: 'elo' });
+                          updateRankingConfigMutation.mutate({ ...rankingConfig, mode: 'elo' });
                         }}
+                        disabled={updateRankingConfigMutation.isPending}
                         className={`p-4 rounded-xl border-2 transition-all ${
-                          group.rankingConfig?.mode === 'elo'
+                          rankingConfig.mode === 'elo'
                             ? 'border-blue-600 bg-blue-600/5'
                             : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/40'
                         }`}
@@ -531,11 +612,12 @@ export default function GroupSettingsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          // TODO: Implement ranking mode change
-                          console.log('Change to Points');
+                          setRankingConfig({ ...rankingConfig, mode: 'points' });
+                          updateRankingConfigMutation.mutate({ ...rankingConfig, mode: 'points' });
                         }}
+                        disabled={updateRankingConfigMutation.isPending}
                         className={`p-4 rounded-xl border-2 transition-all ${
-                          group.rankingConfig?.mode === 'points'
+                          rankingConfig.mode === 'points'
                             ? 'border-blue-600 bg-blue-600/5'
                             : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/40'
                         }`}
@@ -546,7 +628,7 @@ export default function GroupSettingsPage() {
                     </div>
                   </div>
 
-                  {group.rankingConfig?.mode === 'elo' && (
+                  {rankingConfig.mode === 'elo' && (
                     <div className="space-y-4 p-4 bg-zinc-950/40 rounded-xl border border-zinc-800">
                       <h3 className="font-bold text-zinc-300 uppercase tracking-wider text-sm">Configuración ELO</h3>
                       <div className="grid grid-cols-3 gap-4">
@@ -554,7 +636,12 @@ export default function GroupSettingsPage() {
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">K-Factor</label>
                           <Input
                             type="number"
-                            defaultValue={group.rankingConfig.eloSettings?.kFactor || 32}
+                            value={rankingConfig.eloSettings.kFactor}
+                            onChange={(e) => setRankingConfig({
+                              ...rankingConfig,
+                              eloSettings: { ...rankingConfig.eloSettings, kFactor: parseInt(e.target.value) },
+                            })}
+                            onBlur={() => updateRankingConfigMutation.mutate(rankingConfig)}
                             className="bg-zinc-900 border-zinc-800"
                           />
                         </div>
@@ -562,7 +649,12 @@ export default function GroupSettingsPage() {
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Rating Inicial</label>
                           <Input
                             type="number"
-                            defaultValue={group.rankingConfig.eloSettings?.initialRating || 1200}
+                            value={rankingConfig.eloSettings.initialRating}
+                            onChange={(e) => setRankingConfig({
+                              ...rankingConfig,
+                              eloSettings: { ...rankingConfig.eloSettings, initialRating: parseInt(e.target.value) },
+                            })}
+                            onBlur={() => updateRankingConfigMutation.mutate(rankingConfig)}
                             className="bg-zinc-900 border-zinc-800"
                           />
                         </div>
@@ -570,7 +662,12 @@ export default function GroupSettingsPage() {
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Rating Mínimo</label>
                           <Input
                             type="number"
-                            defaultValue={group.rankingConfig.eloSettings?.minRating || 0}
+                            value={rankingConfig.eloSettings.minRating}
+                            onChange={(e) => setRankingConfig({
+                              ...rankingConfig,
+                              eloSettings: { ...rankingConfig.eloSettings, minRating: parseInt(e.target.value) },
+                            })}
+                            onBlur={() => updateRankingConfigMutation.mutate(rankingConfig)}
                             className="bg-zinc-900 border-zinc-800"
                           />
                         </div>
@@ -578,7 +675,7 @@ export default function GroupSettingsPage() {
                     </div>
                   )}
 
-                  {group.rankingConfig?.mode === 'points' && (
+                  {rankingConfig.mode === 'points' && (
                     <div className="space-y-4 p-4 bg-zinc-950/40 rounded-xl border border-zinc-800">
                       <h3 className="font-bold text-zinc-300 uppercase tracking-wider text-sm">Configuración de Puntos</h3>
                       <div className="grid grid-cols-3 gap-4">
@@ -586,7 +683,12 @@ export default function GroupSettingsPage() {
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Puntos Victoria</label>
                           <Input
                             type="number"
-                            defaultValue={group.rankingConfig.pointsSettings?.winPoints || 3}
+                            value={rankingConfig.pointsSettings.winPoints}
+                            onChange={(e) => setRankingConfig({
+                              ...rankingConfig,
+                              pointsSettings: { ...rankingConfig.pointsSettings, winPoints: parseInt(e.target.value) },
+                            })}
+                            onBlur={() => updateRankingConfigMutation.mutate(rankingConfig)}
                             className="bg-zinc-900 border-zinc-800"
                           />
                         </div>
@@ -594,7 +696,12 @@ export default function GroupSettingsPage() {
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Puntos Derrota</label>
                           <Input
                             type="number"
-                            defaultValue={group.rankingConfig.pointsSettings?.lossPoints || -1}
+                            value={rankingConfig.pointsSettings.lossPoints}
+                            onChange={(e) => setRankingConfig({
+                              ...rankingConfig,
+                              pointsSettings: { ...rankingConfig.pointsSettings, lossPoints: parseInt(e.target.value) },
+                            })}
+                            onBlur={() => updateRankingConfigMutation.mutate(rankingConfig)}
                             className="bg-zinc-900 border-zinc-800"
                           />
                         </div>
@@ -602,7 +709,12 @@ export default function GroupSettingsPage() {
                           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-wider block mb-2">Puntos Empate</label>
                           <Input
                             type="number"
-                            defaultValue={group.rankingConfig.pointsSettings?.drawPoints || 1}
+                            value={rankingConfig.pointsSettings.drawPoints}
+                            onChange={(e) => setRankingConfig({
+                              ...rankingConfig,
+                              pointsSettings: { ...rankingConfig.pointsSettings, drawPoints: parseInt(e.target.value) },
+                            })}
+                            onBlur={() => updateRankingConfigMutation.mutate(rankingConfig)}
                             className="bg-zinc-900 border-zinc-800"
                           />
                         </div>
@@ -616,13 +728,13 @@ export default function GroupSettingsPage() {
                       variant="outline"
                       onClick={() => {
                         if (confirm('¿Estás seguro de resetear todos los rankings? Esta acción no se puede deshacer.')) {
-                          // TODO: Implement reset rankings mutation
-                          console.log('Reset rankings');
+                          resetRankingsMutation.mutate();
                         }
                       }}
+                      disabled={resetRankingsMutation.isPending}
                       className="border-red-500/50 text-red-500 hover:bg-red-500/10"
                     >
-                      Resetear Todos los Rankings
+                      {resetRankingsMutation.isPending ? 'Reseteando...' : 'Resetear Todos los Rankings'}
                     </Button>
                   </div>
                 </CardContent>

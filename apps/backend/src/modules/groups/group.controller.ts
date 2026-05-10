@@ -89,4 +89,56 @@ export class GroupController {
       next(error);
     }
   };
+
+  updateMemberRole = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const memberId = req.params.memberId;
+      const userId = req.user!.id;
+      const { role } = req.body;
+      
+      const group = await this.groupService.updateMemberRole(groupId, memberId, role, userId);
+      ApiResponse.success(res, group, 'Member role updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  removeMember = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const memberId = req.params.memberId;
+      const userId = req.user!.id;
+      
+      const group = await this.groupService.removeMember(groupId, memberId, userId);
+      ApiResponse.success(res, group, 'Member removed successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateRankingConfig = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user!.id;
+      const config = req.body;
+      
+      const group = await this.groupService.updateRankingConfig(groupId, config, userId);
+      ApiResponse.success(res, group, 'Ranking config updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resetRankings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const groupId = req.params.id;
+      const userId = req.user!.id;
+      
+      await this.groupService.resetRankings(groupId, userId);
+      ApiResponse.success(res, null, 'Rankings reset successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }

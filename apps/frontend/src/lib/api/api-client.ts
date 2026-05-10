@@ -147,6 +147,26 @@ export class ApiClient {
     return response.data;
   }
 
+  async updateMemberRole(groupId: string, memberId: string, role: string) {
+    const response = await this.client.patch(`/api/groups/${groupId}/members/${memberId}`, { role });
+    return response.data;
+  }
+
+  async removeMember(groupId: string, memberId: string) {
+    const response = await this.client.delete(`/api/groups/${groupId}/members/${memberId}`);
+    return response.data;
+  }
+
+  async updateRankingConfig(groupId: string, config: any) {
+    const response = await this.client.patch(`/api/groups/${groupId}/ranking-config`, config);
+    return response.data;
+  }
+
+  async resetRankings(groupId: string) {
+    const response = await this.client.post(`/api/groups/${groupId}/reset-rankings`);
+    return response.data;
+  }
+
   // Rankings
   async getLeaderboard(groupId: string, page = 1, limit = 50) {
     const response = await this.client.get(`/api/rankings/group/${groupId}`, {

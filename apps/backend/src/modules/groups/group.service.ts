@@ -181,6 +181,103 @@ export class GroupService {
     await Ranking.updateMany({ group: id }, { isActive: false });
   }
 
+  async updateMemberRole(groupId: string, memberId: string, role: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para gestionar miembros', 403);
+    }
+
+    const member = group.members.find((m) => m.user.toString() === memberId);
+    if (!member) {
+      throw new AppError('Miembro no encontrado', 404);
+    }
+
+    if (member.user.toString() === group.owner.toString()) {
+      throw new AppError('No puedes cambiar el rol del owner', 400);
+    }
+
+    member.role = role as 'admin' | 'member';
+    return await group.save();
+  }
+
+  async removeMember(groupId: string, memberId: string, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para gestionar miembros', 403);
+    }
+
+    const memberIndex = group.members.findIndex((m) => m.user.toString() === memberId);
+    if (memberIndex === -1) {
+      throw new AppError('Miembro no encontrado', 404);
+    }
+
+    if (group.members[memberIndex].user.toString() === group.owner.toString()) {
+      throw new AppError('No puedes expulsar al owner', 400);
+    }
+
+    group.members.splice(memberIndex, 1);
+    group.stats.totalMembers = group.members.length;
+
+    return await group.save();
+  }
+
+  async updateRankingConfig(groupId: string, config: any, userId: string): Promise<IGroup> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para actualizar la configuración de ranking', 403);
+    }
+
+    if (config.mode) {
+      group.rankingConfig.mode = config.mode;
+    }
+
+    if (config.eloSettings) {
+      group.rankingConfig.eloSettings = {
+        ...group.rankingConfig.eloSettings,
+        ...config.eloSettings,
+      };
+    }
+
+    if (config.pointsSettings) {
+      group.rankingConfig.pointsSettings = {
+        ...group.rankingConfig.pointsSettings,
+        ...config.pointsSettings,
+      };
+    }
+
+    return await group.save();
+  }
+
+  async resetRankings(groupId: string, userId: string): Promise<void> {
+    const group = await Group.findById(groupId);
+    if (!group) {
+      throw new AppError('Grupo no encontrado', 404);
+    }
+
+    if (group.owner.toString() !== userId) {
+      throw new AppError('No tienes permiso para resetear rankings', 403);
+    }
+
+    await Ranking.deleteMany({ group: groupId });
+
+    // Recreate rankings for all members
+    for (const member of group.members) {
+      await this.ensureRanking(member.user.toString(), group);
+    }
+  }
+
   private async ensureRanking(userId: string, group: IGroup): Promise<void> {
     const existingRanking = await Ranking.findOne({ user: userId, group: group._id });
     if (existingRanking) return;
