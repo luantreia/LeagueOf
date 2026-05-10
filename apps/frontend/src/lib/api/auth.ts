@@ -15,6 +15,7 @@ export interface User {
   role: 'user' | 'admin' | 'moderator';
   isVerified: boolean;
   isActive: boolean;
+  createdAt: string;
   stats: UserStats;
 }
 

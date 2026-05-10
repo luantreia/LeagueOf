@@ -1,0 +1,44 @@
+'use client';
+
+import { useParams } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { TrophyIcon, UsersIcon } from '@heroicons/react/24/outline';
+
+export default function LobbyPage() {
+  const { id } = useParams();
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <Card className="max-w-4xl mx-auto bg-zinc-900 border-zinc-800 text-white overflow-hidden">
+        <div className="h-32 bg-gradient-to-r from-emerald-600 to-teal-600 flex items-center justify-center">
+          <TrophyIcon className="w-16 h-16 text-white/50 animate-bounce" />
+        </div>
+        
+        <CardHeader className="-mt-10 px-8">
+          <CardTitle className="text-4xl font-black italic uppercase tracking-tighter">
+            Lobby de Competición
+          </CardTitle>
+          <p className="text-zinc-400">ID del Grupo: {id}</p>
+        </CardHeader>
+        
+        <CardContent className="p-8 space-y-6">
+          <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-zinc-700 rounded-3xl bg-zinc-800/30">
+            <UsersIcon className="w-12 h-12 text-zinc-500 mb-4" />
+            <h3 className="text-xl font-bold mb-2">Preparando el Campo de Batalla</h3>
+            <p className="text-zinc-400 text-center max-w-sm">
+              El sistema de lobbies está en fase de despliegue. Pronto podrás crear colas de espera y organizar partidas directamente desde aquí.
+            </p>
+          </div>
+          
+          <Button 
+            className="w-full h-12 rounded-xl bg-zinc-100 text-zinc-950 font-bold hover:bg-zinc-200 transition-colors"
+            onClick={() => window.history.back()}
+          >
+            ← Volver al Grupo
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

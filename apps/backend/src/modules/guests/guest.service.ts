@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Guest, IGuest } from './guest.model';
 import { VerificationCode } from './verification-code.model';
 import { Match } from '../matches/match.model';
@@ -26,7 +27,7 @@ export class GuestService {
     email?: string,
     phone?: string
   ): Promise<IGuest[]> {
-    const query: any = { claimedBy: { $exists: false } };
+    const query: { claimedBy?: { $exists: boolean }; email?: string; phone?: string } = { claimedBy: { $exists: false } };
     
     if (email) query.email = email;
     if (phone) query.phone = phone;
@@ -49,7 +50,7 @@ export class GuestService {
 
     const claimedGuests = await Promise.all(
       guests.map(async (guest) => {
-        guest.claimedBy = userId as any;
+        guest.claimedBy = new mongoose.Types.ObjectId(userId);
         guest.claimedAt = new Date();
         await guest.save();
         return guest;

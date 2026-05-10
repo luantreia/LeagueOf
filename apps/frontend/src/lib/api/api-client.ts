@@ -97,6 +97,20 @@ export class ApiClient {
     return response.data;
   }
 
+  async getUserStats() {
+    const response = await this.client.get('/api/users/me/stats');
+    return response.data;
+  }
+
+  async updateProfile(data: {
+    displayName?: string;
+    username?: string;
+    email?: string;
+  }) {
+    const response = await this.client.patch('/api/users/me', data);
+    return response.data;
+  }
+
   // Groups
   async getGroups(params?: { filter?: string }) {
     const response = await this.client.get('/api/groups', { params });
