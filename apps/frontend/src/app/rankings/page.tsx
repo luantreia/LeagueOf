@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/api-client';
 import { useAuth } from '@/lib/auth-context';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { FunnelIcon, TrophyIcon } from '@heroicons/react/24/outline';
 
 type FilterMode = 'group' | 'global';
 type PlayerRelationFilter = 'all' | 'synergy' | 'rivalry';
@@ -223,147 +225,95 @@ export default function RankingsPage() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-4 gap-8">
-        <aside className="md:col-span-1 space-y-6">
-          <section>
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Filtros</h3>
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
-              {[
-                ['group', 'Filtrar por grupo'],
-                ['global', 'Filtros globales'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFilterMode(value as FilterMode)}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    filterMode === value
-                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold'
-                      : 'hover:bg-white/5 text-gray-400'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </section>
-
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <FunnelIcon className="w-5 h-5 text-blue-500" />
+            Filtros
+          </CardTitle>
+          <CardDescription>Filtrá por grupo, juego, jugador, sinergia o rivalidad.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <select
+            value={filterMode}
+            onChange={(event) => setFilterMode(event.target.value as FilterMode)}
+            className="h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+          >
+            <option value="group">Por grupo</option>
+            <option value="global">Filtros globales</option>
+          </select>
+          
           {filterMode === 'group' && (
-            <section>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Grupo</h3>
-              <input
-                value={groupSearch}
-                onChange={(event) => setGroupSearch(event.target.value)}
-                placeholder="Buscar grupo"
-                className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200 mb-3"
-              />
-              <div className="space-y-2">
-                {filteredGroups.map((group: any) => (
-                  <button
-                    key={group._id}
-                    type="button"
-                    onClick={() => setSelectedGroupId(group._id)}
-                    className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                      activeGroupId === group._id
-                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold'
-                        : 'hover:bg-white/5 text-gray-400'
-                    }`}
-                  >
-                    {group.name}
-                  </button>
-                ))}
-                {!isLoadingGroups && groups.length === 0 && (
-                  <p className="px-4 py-3 text-sm text-gray-500 border border-dashed border-gray-800 rounded-lg">
-                    Todavia no perteneces a grupos.
-                  </p>
-                )}
-                {!isLoadingGroups && groups.length > 0 && filteredGroups.length === 0 && (
-                  <p className="px-4 py-3 text-sm text-gray-500 border border-dashed border-gray-800 rounded-lg">
-                    No hay grupos que coincidan con la busqueda.
-                  </p>
-                )}
-              </div>
-            </section>
+            <select
+              value={selectedGroupId}
+              onChange={(event) => setSelectedGroupId(event.target.value)}
+              className="h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+            >
+              <option value="">Todos los grupos</option>
+              {groups.map((group: any) => (
+                <option key={group._id} value={group._id}>{group.name}</option>
+              ))}
+            </select>
           )}
+          
+          <select
+            value={selectedGameType}
+            onChange={(event) => setSelectedGameType(event.target.value)}
+            className="h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+          >
+            <option value="">Todos los juegos</option>
+            {gameTypes.map((gameType) => (
+              <option key={gameType} value={gameType}>{gameType}</option>
+            ))}
+          </select>
+          
+          <Input
+            placeholder="Buscar jugador"
+            value={selectedPlayerKey}
+            onChange={(event) => setSelectedPlayerKey(event.target.value)}
+            className="h-12 bg-zinc-950 border-zinc-800"
+          />
+          
+          <select
+            value={playerRelation}
+            onChange={(event) => setPlayerRelation(event.target.value as PlayerRelationFilter)}
+            className="h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+          >
+            <option value="all">Todos</option>
+            <option value="synergy">Sinergias</option>
+            <option value="rivalry">Rivalidades</option>
+          </select>
+        </CardContent>
+      </Card>
 
-          {filterMode === 'global' && (
-            <section className="space-y-4">
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Juego</h3>
-                <select
-                  value={selectedGameType}
-                  onChange={(event) => setSelectedGameType(event.target.value)}
-                  className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
-                >
-                  <option value="">Todos los juegos</option>
-                  {gameTypes.map((gameType) => (
-                    <option key={gameType} value={gameType}>
-                      {gameType}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Jugador</h3>
-                <select
-                  value={selectedPlayerKey}
-                  onChange={(event) => setSelectedPlayerKey(event.target.value)}
-                  className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
-                >
-                  <option value="">Todos los jugadores</option>
-                  {playerOptions.map((player) => (
-                    <option key={player.key} value={player.key}>
-                      {player.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Tipo</h3>
-                <select
-                  value={playerRelation}
-                  onChange={(event) => setPlayerRelation(event.target.value as PlayerRelationFilter)}
-                  disabled={!selectedPlayerKey}
-                  className="w-full h-11 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 text-sm text-gray-700 dark:text-gray-200"
-                >
-                  <option value="all">Todas</option>
-                  <option value="synergy">Sinergia</option>
-                  <option value="rivalry">Rivalidad</option>
-                </select>
-              </div>
-            </section>
-          )}
-        </aside>
+      {/* Contenido de rankings */}
+      <div className="space-y-6">
+        {filterMode === 'group' && (
+          <section className="space-y-4">
+            <div className="flex items-center gap-3">
+              <TrophyIcon className="w-5 h-5 text-emerald-500" />
+              <h2 className="text-2xl font-black italic uppercase text-zinc-50">Ranking del Grupo</h2>
+            </div>
+            <RankingTable rankings={rankings} isLoading={isLoading} />
+          </section>
+        )}
 
-        <main className="md:col-span-3">
-          <Card>
-            <CardHeader className="border-b border-gray-100 dark:border-gray-800">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                <CardTitle>{title}</CardTitle>
-                <div className="text-xs text-gray-500 font-medium">
-                  {showPlayerHistory
-                    ? `${playerHistory.length} partidas`
-                    : `${rankings.length} registros`}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {showPlayerHistory ? (
-                <HistoryTable history={playerHistory} isLoading={isLoading} />
-              ) : (
-                <RankingTable rankings={rankings} selectedGroup={selectedGroup} isLoading={isLoading} />
-              )}
-            </CardContent>
-          </Card>
-        </main>
+        {filterMode === 'global' && (
+          <section className="space-y-4">
+            <div className="flex items-center gap-3">
+              <TrophyIcon className="w-5 h-5 text-blue-500" />
+              <h2 className="text-2xl font-black italic uppercase text-zinc-50">{title}</h2>
+            </div>
+            <RankingTable rankings={rankings} isLoading={isLoading} />
+          </section>
+        )}
       </div>
     </div>
   );
 }
 
-function RankingTable({ rankings, selectedGroup, isLoading }: {
+function RankingTable({ rankings, isLoading }: {
   rankings: any[];
-  selectedGroup?: any;
   isLoading: boolean;
 }) {
   return (
@@ -406,7 +356,7 @@ function RankingTable({ rankings, selectedGroup, isLoading }: {
                 </div>
               </td>
               <td className="px-6 py-4 text-gray-500">
-                {ranking.group?.name || selectedGroup?.name || '-'}
+                {ranking.group?.name || '-'}
               </td>
               <td className="px-6 py-4 font-bold text-blue-500">{getScore(ranking)}</td>
               <td className="px-6 py-4 text-green-500 font-medium">
