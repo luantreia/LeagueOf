@@ -95,6 +95,9 @@ export class RankingService {
       const isDraw = match.winner === undefined || match.winner === null;
 
       for (const player of team.players) {
+        // Skip guests - they don't have rankings
+        if (!player.user) continue;
+
         let ranking: any = await Ranking.findOne({
           user: player.user,
           group: group._id,
@@ -156,6 +159,9 @@ export class RankingService {
       const isDraw = match.winner === undefined || match.winner === null;
 
       for (const player of team.players) {
+        // Skip guests - they don't have rankings
+        if (!player.user) continue;
+
         let ranking: any = await Ranking.findOne({
           user: player.user,
           group: group._id,
@@ -230,6 +236,9 @@ export class RankingService {
     for (let i = 0; i < match.teams.length; i++) {
       if (i !== teamIndex) {
         for (const player of match.teams[i].players) {
+          // Skip guests - they don't have rankings
+          if (!player.user) continue;
+
           const ranking = await Ranking.findOne({
             user: player.user,
             group: groupId,
