@@ -7,6 +7,7 @@ import { config } from '@/config/environment';
 import { AppError } from '@/shared/utils/app-error';
 import { logger } from '@/core/logging/logger';
 import { Mailer } from '@/core/email/mailer';
+import { GuestService } from '@/modules/guests/guest.service';
 
 export interface TokenPayload {
   id: string;
@@ -17,6 +18,7 @@ export interface TokenPayload {
 export class AuthService {
   private redis = RedisClient.getInstance();
   private mailer = new Mailer();
+  private guestService = new GuestService();
 
   async register(userData: {
     email: string;
@@ -298,5 +300,65 @@ export class AuthService {
     } catch (error) {
       return null;
     }
+  }
+
+  async checkForGuests(email?: string, phone?: string): Promise<{ hasGuests: boolean; guestCount: number }> {
+    const guests = await this.guestService.findGuestsByEmailOrPhone(email, phone);
+    return {
+      hasGuests: guests.length > 0,
+      guestCount: guests.length,
+    };
+  }
+
+  async sendGuestVerificationCode(email?: string, phone?: string): Promise<{ code: string; guestIds: string[] }> {
+    if (config.env === 'production' && !this.mailer.isConfigured()) {
+      logger.error('Guest verification requested but email delivery is not configured');
+      throw new AppError('El servicio de email no esta configurado', 503);
+    }
+
+    const { code, guestIds } = await this.guestService.generateVerificationCode(email, phone);
+
+    if (email) {
+      await this.mailer.send({
+        to: email,
+        subject: 'Codigo de verificacion - League Of',
+        text: `Tu codigo de verificacion es: ${code}. Expira en 15 minutos.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+            <h1>Codigo de verificacion</h1>
+            <p>Tu codigo de verificacion es: <strong>${code}</strong></p>
+            <p>Este codigo expira en 15 minutos.</p>
+            <p>Si no solicitaste este codigo, ignora este correo.</p>
+          </div>
+        `,
+      });
+    }
+
+    logger.info(`Verification code sent for email: ${email}, phone: ${phone}`);
+
+    return { code, guestIds };
+  }
+
+  async verifyAndClaimGuests(
+    userId: string,
+    code: string,
+    email?: string,
+    phone?: string
+  ): Promise<{ claimed: boolean; guestCount: number }> {
+    const verification = await this.guestService.verifyCode(code, email, phone);
+
+    if (!verification.valid) {
+      throw new AppError('Codigo de verificacion invalido o expirado', 400);
+    }
+
+    if (!verification.guestIds || verification.guestIds.length === 0) {
+      return { claimed: false, guestCount: 0 };
+    }
+
+    await this.guestService.claimGuests(userId, verification.guestIds);
+
+    logger.info(`User ${userId} claimed ${verification.guestIds.length} guests`);
+
+    return { claimed: true, guestCount: verification.guestIds.length };
   }
 }

@@ -12,7 +12,8 @@ export interface IMatch extends Document {
   teams: Array<{
     name: string;
     players: Array<{
-      user: mongoose.Types.ObjectId;
+      user?: mongoose.Types.ObjectId;
+      guest?: mongoose.Types.ObjectId;
       stats?: {
         kills?: number;
         deaths?: number;
@@ -81,7 +82,10 @@ const matchSchema = new Schema<IMatch>(
             user: {
               type: Schema.Types.ObjectId,
               ref: 'User',
-              required: true,
+            },
+            guest: {
+              type: Schema.Types.ObjectId,
+              ref: 'Guest',
             },
             stats: {
               type: Schema.Types.Mixed,
@@ -126,6 +130,7 @@ const matchSchema = new Schema<IMatch>(
 // Indexes
 matchSchema.index({ group: 1, status: 1 });
 matchSchema.index({ 'teams.players.user': 1 });
+matchSchema.index({ 'teams.players.guest': 1 });
 matchSchema.index({ completedAt: -1 });
 matchSchema.index({ createdAt: -1 });
 matchSchema.index({ isRanked: 1, status: 1 });

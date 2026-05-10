@@ -7,6 +7,7 @@ import { rankingRoutes } from '@/modules/rankings/ranking.routes';
 import { notificationRoutes } from '@/modules/notifications/notification.routes';
 import { lobbyRoutes } from '@/modules/lobbies/lobby.routes';
 import { integrationRoutes } from '@/modules/integrations/integration.routes';
+import guestRoutes from '@/modules/guests/guest.routes';
 
 export const setupRoutes = (app: Application): void => {
   const router = Router();
@@ -20,6 +21,7 @@ export const setupRoutes = (app: Application): void => {
   router.use('/notifications', notificationRoutes);
   router.use('/lobbies', lobbyRoutes);
   router.use('/integrations', integrationRoutes);
+  router.use('/guests', guestRoutes);
 
   // Mount all routes under /api
   app.use('/api', router);

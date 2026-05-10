@@ -155,4 +155,49 @@ export class AuthController {
       next(error);
     }
   };
+
+  checkForGuests = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email, phone } = req.query;
+      const result = await this.authService.checkForGuests(
+        email as string,
+        phone as string
+      );
+
+      ApiResponse.success(res, result, 'Guest check completed');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  sendGuestVerificationCode = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email, phone } = req.body;
+      const result = await this.authService.sendGuestVerificationCode(email, phone);
+
+      ApiResponse.success(res, result, 'Verification code sent');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifyAndClaimGuests = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401);
+      }
+
+      const { code, email, phone } = req.body;
+      const result = await this.authService.verifyAndClaimGuests(
+        req.user.id,
+        code,
+        email,
+        phone
+      );
+
+      ApiResponse.success(res, result, 'Guests claimed successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }

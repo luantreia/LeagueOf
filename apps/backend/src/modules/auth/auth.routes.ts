@@ -54,4 +54,23 @@ router.post('/logout', authenticate, authController.logout);
 router.post('/logout-all', authenticate, authController.logoutAll);
 router.get('/me', authenticate, authController.getCurrentUser);
 
+// Guest verification routes
+router.get(
+  '/guests/check',
+  strictRateLimiter,
+  authController.checkForGuests
+);
+
+router.post(
+  '/guests/send-verification',
+  strictRateLimiter,
+  authController.sendGuestVerificationCode
+);
+
+router.post(
+  '/guests/verify',
+  authenticate,
+  authController.verifyAndClaimGuests
+);
+
 export const authRoutes = router;
