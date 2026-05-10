@@ -15,6 +15,7 @@ import {
   ClockIcon,
   PlayIcon,
   PlusIcon,
+  SparklesIcon,
   TrophyIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
@@ -30,10 +31,21 @@ function getGroupId(match: any) {
   return match.group?._id || match.group;
 }
 
+function getScore(ranking: any) {
+  if (!ranking) return '-';
+  if (ranking.rankingType === 'elo') return `${Math.round(ranking.elo?.rating || 0)} ELO`;
+  return `${Math.round(ranking.points?.total || 0)} pts`;
+}
+
 function getWinnerLabel(match: any) {
   if (match.status !== 'completed') return 'Resultado pendiente';
   if (match.winner === undefined || match.winner === null) return 'Empate';
   return `Gano ${match.teams?.[match.winner]?.name || 'Equipo ganador'}`;
+}
+
+function getUserRanking(rankings: any[], userId?: string) {
+  if (!userId) return null;
+  return rankings.find((ranking) => (ranking.user?._id || ranking.user) === userId) || null;
 }
 
 export default function Home() {
@@ -47,7 +59,7 @@ export default function Home() {
 
   const { data: matchesResponse, isLoading: isLoadingMatches } = useQuery({
     queryKey: ['dashboard', 'matches'],
-    queryFn: () => apiClient.getMatches({ limit: 8 }),
+    queryFn: () => apiClient.getMatches({ limit: 12 }),
     enabled: !!user,
   });
 
@@ -57,9 +69,9 @@ export default function Home() {
     enabled: !!user,
   });
 
-  const { data: rankingResponse } = useQuery({
+  const { data: rankingResponse, isLoading: isLoadingRankings } = useQuery({
     queryKey: ['dashboard', 'rankings'],
-    queryFn: () => apiClient.getGlobalLeaderboard(1, 5),
+    queryFn: () => apiClient.getGlobalLeaderboard(1, 25),
     enabled: !!user,
   });
 
@@ -73,20 +85,61 @@ export default function Home() {
     losses: user?.stats?.totalLosses || 0,
     draws: 0,
   };
-  const rankings = rankingResponse?.data?.rankings || [];
-
-  const activeMatches = useMemo(
-    () => matches.filter((match: any) => match.status !== 'completed').slice(0, 3),
-    [matches]
-  );
-  const recentMatches = useMemo(
-    () => matches.filter((match: any) => match.status === 'completed').slice(0, 3),
-    [matches]
-  );
-  const recentGroups = groups.slice(0, 3);
-  const firstGroup = groups[0];
+  const rankings = rankingResponse?.rankings || rankingResponse?.data?.rankings || [];
+  const personalRanking = getUserRanking(rankings, user?._id);
+  const topRankings = rankings.slice(0, 4);
+  const activeMatches = matches.filter((match: any) => match.status !== 'completed').slice(0, 4);
+  const completedMatches = matches.filter((match: any) => match.status === 'completed').slice(0, 3);
+  const primaryGroup = groups[0];
   const winRate = summary.total > 0 ? Math.round((summary.wins / summary.total) * 100) : 0;
-  const isDashboardLoading = isLoadingGroups || isLoadingMatches;
+  const isDashboardLoading = isLoadingGroups || isLoadingMatches || isLoadingRankings;
+
+  const actionItems = [
+    ...activeMatches.map((match: any) => ({
+      key: `match-${match._id}`,
+      tone: match.status === 'pending' ? 'amber' : 'blue',
+      eyebrow: statusLabels[match.status] || 'Partida activa',
+      title: match.name || 'Partida sin nombre',
+      text: `${match.group?.name || 'Grupo'} - ${match.gameType || 'custom'}`,
+      href: `/groups/${getGroupId(match)}/lobby`,
+      action: match.status === 'pending' ? 'Cargar resultado' : 'Abrir lobby',
+    })),
+    ...(groups.length === 0
+      ? [{
+          key: 'first-group',
+          tone: 'emerald',
+          eyebrow: 'Primer paso',
+          title: 'Crea o unite a un grupo',
+          text: 'Los rankings y partidas nacen dentro de comunidades.',
+          href: '/groups',
+          action: 'Ir a grupos',
+        }]
+      : []),
+  ].slice(0, 4);
+
+  const activityItems = [
+    ...activeMatches.map((match: any) => ({
+      key: `active-${match._id}`,
+      icon: <PlayIcon className="w-4 h-4" />,
+      title: match.status === 'pending' ? 'Resultado pendiente' : 'Partida en curso',
+      text: `${match.name} en ${match.group?.name || 'un grupo'}`,
+      href: `/groups/${getGroupId(match)}/lobby`,
+    })),
+    ...completedMatches.map((match: any) => ({
+      key: `completed-${match._id}`,
+      icon: <TrophyIcon className="w-4 h-4" />,
+      title: getWinnerLabel(match),
+      text: `${match.name} - ${match.group?.name || 'Grupo'}`,
+      href: `/groups/${getGroupId(match)}`,
+    })),
+    ...groups.slice(0, 2).map((group: any) => ({
+      key: `group-${group._id}`,
+      icon: <UserGroupIcon className="w-4 h-4" />,
+      title: group.name,
+      text: `${group.members?.length || 0} miembros - @${group.handle}`,
+      href: `/groups/${group._id}`,
+    })),
+  ].slice(0, 7);
 
   if (isLoading) {
     return (
@@ -101,124 +154,124 @@ export default function Home() {
 
   if (user) {
     return (
-      <div className="min-h-screen bg-zinc-950 px-4 sm:px-6 py-12 lg:px-12">
-        <div className="max-w-7xl mx-auto space-y-12">
-          <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-2 bg-blue-600 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.6)]" />
-                <h1 className="text-3xl sm:text-5xl font-black text-zinc-50 italic tracking-tighter uppercase leading-none">
-                  Dashboard
-                </h1>
-              </div>
-              <p className="text-zinc-500 font-bold uppercase tracking-[0.18em] text-[10px] sm:text-xs">
-                Bienvenido de vuelta, <span className="text-zinc-100 italic">@{user.username}</span>.
-              </p>
-            </div>
+      <div className="min-h-screen bg-zinc-950 px-4 sm:px-6 py-10 lg:px-12">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <header className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6 items-stretch">
+            <section className="border border-zinc-800 bg-zinc-900/40 rounded-2xl p-6 sm:p-8 overflow-hidden relative">
+              <div className="absolute inset-x-0 top-0 h-1 bg-blue-600" />
+              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-blue-400 italic">
+                    Hoy en League Of
+                  </p>
+                  <div>
+                    <h1 className="text-3xl sm:text-5xl font-black text-zinc-50 italic tracking-tighter uppercase leading-none">
+                      @{user.username}
+                    </h1>
+                    <p className="text-zinc-500 mt-3 max-w-2xl">
+                      Tu tablero muestra pendientes, movimiento competitivo y el siguiente paso mas probable.
+                    </p>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full xl:w-auto">
-              <StatPill label="Partidas" value={summary.total} />
-              <StatPill label="Victorias" value={summary.wins} tone="emerald" />
-              <StatPill label="Derrotas" value={summary.losses} tone="red" />
-              <StatPill label="Winrate" value={`${winRate}%`} tone="blue" />
-            </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <Metric label="Winrate" value={`${winRate}%`} tone="blue" />
+                  <Metric label="Activas" value={summary.active} tone="amber" />
+                  <Metric label="Victorias" value={summary.wins} tone="emerald" />
+                  <Metric label="Rank" value={personalRanking?.rank ? `#${personalRanking.rank}` : '-'} tone="zinc" />
+                </div>
+              </div>
+            </section>
+
+            <section className="border border-zinc-800 bg-zinc-900/40 rounded-2xl p-6 sm:p-8">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600 mb-5">
+                Estado personal
+              </p>
+              <div className="flex items-center justify-between gap-5">
+                <div>
+                  <p className="text-4xl font-black italic text-zinc-100 leading-none">{getScore(personalRanking)}</p>
+                  <p className="text-sm text-zinc-500 mt-3">
+                    {personalRanking?.group?.name || 'Ranking global combinado'}
+                  </p>
+                </div>
+                <div className="h-16 w-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <ChartBarIcon className="w-8 h-8" />
+                </div>
+              </div>
+              <Link href="/rankings">
+                <Button variant="outline" className="w-full mt-6 font-black uppercase">
+                  Ver tabla completa
+                </Button>
+              </Link>
+            </section>
           </header>
 
-          <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <DashboardAction
-              href={firstGroup ? `/groups/${firstGroup._id}/lobby` : '/groups'}
-              eyebrow="Partidas"
-              title={firstGroup ? 'Crear Lobby' : 'Elegir Grupo'}
-              icon={<PlayIcon className="w-9 h-9" />}
-              primary
-            />
-            <DashboardAction
-              href="/matches"
-              eyebrow="Historial"
-              title="Ver Partidas"
-              icon={<ClockIcon className="w-9 h-9" />}
-            />
-            <DashboardAction
-              href="/groups"
-              eyebrow="Comunidad"
-              title="Mis Grupos"
-              icon={<UserGroupIcon className="w-9 h-9" />}
-            />
-            <DashboardAction
-              href="/rankings"
-              eyebrow="Ranking"
-              title="Clasificacion"
-              icon={<TrophyIcon className="w-9 h-9" />}
-            />
-          </section>
-
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <PanelHeader title="Partidas abiertas" actionHref="/matches" actionLabel="Ver todas" />
+          <section className="grid grid-cols-1 lg:grid-cols-[1.45fr_0.9fr] gap-8">
+            <div className="space-y-8">
+              <PanelHeader title="Requiere atencion" actionHref="/matches" actionLabel="Partidas" />
               {isDashboardLoading ? (
-                <EmptyPanel text="Cargando partidas..." />
-              ) : activeMatches.length > 0 ? (
+                <EmptyPanel text="Buscando pendientes..." />
+              ) : actionItems.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {activeMatches.map((match: any) => (
-                    <MatchCard key={match._id} match={match} active />
+                  {actionItems.map((item) => (
+                    <ActionCard key={item.key} item={item} />
                   ))}
                 </div>
               ) : (
                 <EmptyPanel
-                  text="No hay partidas abiertas."
-                  actionHref={firstGroup ? `/groups/${firstGroup._id}/lobby` : '/groups'}
-                  actionLabel={firstGroup ? 'Crear lobby' : 'Ir a grupos'}
+                  text="No tienes pendientes ahora mismo."
+                  actionHref={primaryGroup ? `/groups/${primaryGroup._id}/lobby` : '/groups'}
+                  actionLabel={primaryGroup ? 'Crear lobby' : 'Ir a grupos'}
                 />
               )}
 
-              <PanelHeader title="Completadas recientes" actionHref="/matches?status=completed" actionLabel="Historial" />
+              <PanelHeader title="Actividad reciente" actionHref="/matches" actionLabel="Ver historial" />
               {isDashboardLoading ? (
-                <EmptyPanel text="Cargando historial..." />
-              ) : recentMatches.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {recentMatches.map((match: any) => (
-                    <MatchCard key={match._id} match={match} />
-                  ))}
-                </div>
+                <EmptyPanel text="Cargando actividad..." />
+              ) : activityItems.length > 0 ? (
+                <Card className="bg-zinc-900/40 border-zinc-800">
+                  <CardContent className="p-3 sm:p-4 divide-y divide-zinc-800">
+                    {activityItems.map((item) => (
+                      <ActivityRow key={item.key} item={item} />
+                    ))}
+                  </CardContent>
+                </Card>
               ) : (
-                <EmptyPanel text="Todavia no hay partidas completadas." />
+                <EmptyPanel text="Aun no hay actividad. Crea un grupo o registra tu primera partida." actionHref="/groups" actionLabel="Empezar" />
               )}
             </div>
 
             <aside className="space-y-8">
-              <PanelHeader title="Tus grupos" actionHref="/groups" actionLabel="Gestionar" />
+              <PanelHeader title="Siguiente movimiento" actionHref="/groups" actionLabel="Grupos" />
               <Card className="bg-zinc-900/40 border-zinc-800">
                 <CardContent className="p-5 space-y-3">
-                  {isDashboardLoading ? (
-                    <p className="text-sm text-zinc-500">Cargando grupos...</p>
-                  ) : recentGroups.length > 0 ? (
-                    recentGroups.map((group: any) => (
-                      <Link
-                        key={group._id}
-                        href={`/groups/${group._id}`}
-                        className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 hover:border-blue-500/40 transition-colors"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-black uppercase italic text-zinc-100 truncate">{group.name}</p>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500/70">@{group.handle}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-lg font-black text-zinc-100">{group.members?.length || 0}</p>
-                          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">miembros</p>
-                        </div>
-                      </Link>
-                    ))
-                  ) : (
-                    <EmptyPanel text="No perteneces a ningun grupo." actionHref="/groups" actionLabel="Crear o unirme" compact />
-                  )}
+                  <QuickAction
+                    href={primaryGroup ? `/groups/${primaryGroup._id}/lobby` : '/groups'}
+                    icon={<PlayIcon className="w-5 h-5" />}
+                    label={primaryGroup ? 'Abrir lobby principal' : 'Elegir grupo'}
+                    text={primaryGroup ? primaryGroup.name : 'Necesitas una comunidad para jugar'}
+                    primary
+                  />
+                  <QuickAction
+                    href="/matches"
+                    icon={<ClockIcon className="w-5 h-5" />}
+                    label="Revisar historial"
+                    text={`${summary.completed || 0} partidas finalizadas`}
+                  />
+                  <QuickAction
+                    href="/groups"
+                    icon={<PlusIcon className="w-5 h-5" />}
+                    label="Crear o unirme"
+                    text={`${groups.length} grupos activos para ti`}
+                  />
                 </CardContent>
               </Card>
 
-              <PanelHeader title="Top rankings" actionHref="/rankings" actionLabel="Ver ranking" />
+              <PanelHeader title="Top competitivo" actionHref="/rankings" actionLabel="Ranking" />
               <Card className="bg-zinc-900/40 border-zinc-800">
                 <CardContent className="p-5 space-y-3">
-                  {rankings.length > 0 ? (
-                    rankings.map((ranking: any, index: number) => (
+                  {topRankings.length > 0 ? (
+                    topRankings.map((ranking: any, index: number) => (
                       <div key={ranking._id || `${ranking.user?._id}-${ranking.group?._id}`} className="flex items-center gap-3 rounded-xl bg-zinc-950/60 border border-zinc-800 p-4">
                         <span className="w-8 text-center text-lg font-black italic text-blue-500">#{ranking.rank || index + 1}</span>
                         <div className="min-w-0 flex-1">
@@ -229,11 +282,11 @@ export default function Home() {
                             {ranking.group?.name || 'Global'}
                           </p>
                         </div>
-                        <p className="font-black text-zinc-100">{Math.round(ranking.rating || ranking.points || 0)}</p>
+                        <p className="font-black text-zinc-100">{getScore(ranking)}</p>
                       </div>
                     ))
                   ) : (
-                    <EmptyPanel text="El ranking se completa cuando haya resultados." compact />
+                    <EmptyPanel text="El ranking aparece cuando haya grupos y resultados." compact />
                   )}
                 </CardContent>
               </Card>
@@ -293,49 +346,19 @@ export default function Home() {
   );
 }
 
-function StatPill({ label, value, tone = 'zinc' }: { label: string; value: number | string; tone?: 'zinc' | 'emerald' | 'red' | 'blue' }) {
+function Metric({ label, value, tone = 'zinc' }: { label: string; value: number | string; tone?: 'zinc' | 'emerald' | 'amber' | 'blue' }) {
   const toneClass = {
     zinc: 'text-zinc-100',
     emerald: 'text-emerald-400',
-    red: 'text-red-400',
+    amber: 'text-amber-400',
     blue: 'text-blue-400',
   }[tone];
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 px-4 sm:px-6 py-4 rounded-2xl text-center">
+    <div className="bg-zinc-950/70 border border-zinc-800 px-4 py-4 rounded-xl min-w-[96px]">
       <span className="block text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">{label}</span>
       <span className={`text-2xl font-black italic leading-none ${toneClass}`}>{value}</span>
     </div>
-  );
-}
-
-function DashboardAction({ href, eyebrow, title, icon, primary = false }: {
-  href: string;
-  eyebrow: string;
-  title: string;
-  icon: React.ReactNode;
-  primary?: boolean;
-}) {
-  return (
-    <Link href={href} className="block">
-      <Card className={`group h-full transition-all overflow-hidden ${
-        primary
-          ? 'bg-blue-600 border-blue-500 hover:bg-blue-500 shadow-2xl shadow-blue-600/20'
-          : 'bg-zinc-900/50 border-zinc-800 hover:border-blue-500/50'
-      }`}>
-        <CardContent className="p-6 min-h-[150px] flex items-center justify-between gap-4">
-          <div>
-            <p className={`text-[10px] font-black uppercase tracking-[0.25em] italic mb-2 ${primary ? 'text-blue-100' : 'text-zinc-600'}`}>
-              {eyebrow}
-            </p>
-            <p className="text-2xl font-black text-zinc-50 uppercase italic tracking-tighter">{title}</p>
-          </div>
-          <div className={`${primary ? 'text-zinc-50' : 'text-blue-500'} group-hover:scale-110 transition-transform`}>
-            {icon}
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }
 
@@ -371,53 +394,82 @@ function EmptyPanel({ text, actionHref, actionLabel, compact = false }: {
   );
 }
 
-function MatchCard({ match, active = false }: { match: any; active?: boolean }) {
-  const groupId = getGroupId(match);
+type ActionTone = 'amber' | 'blue' | 'emerald';
+
+function ActionCard({ item }: { item: any }) {
+  const toneClasses: Record<ActionTone, string> = {
+    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-400',
+    blue: 'border-blue-500/30 bg-blue-500/10 text-blue-400',
+    emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+  };
+  const toneClass = toneClasses[item.tone as ActionTone] || toneClasses.blue;
 
   return (
     <Card className="bg-zinc-900/60 border-zinc-800 hover:border-blue-500/40 transition-colors">
-      <CardContent className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-2 truncate">
-              {match.group?.name || 'Grupo'} / {match.gameType || 'custom'}
-            </p>
-            <h3 className="text-lg font-black uppercase italic text-zinc-100 leading-tight truncate">{match.name}</h3>
+      <CardContent className="p-5 min-h-[190px] flex flex-col justify-between gap-5">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${toneClass}`}>
+              {item.eyebrow}
+            </span>
+            <SparklesIcon className="w-5 h-5 text-zinc-700" />
           </div>
-          <span className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-            match.status === 'completed'
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-          }`}>
-            {statusLabels[match.status] || match.status}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {match.teams?.slice(0, 2).map((team: any, index: number) => (
-            <div key={`${match._id}-${team.name}-${index}`} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-              <div className="flex justify-between gap-3">
-                <p className="font-black uppercase italic text-zinc-100 truncate">{team.name}</p>
-                <p className="text-xl font-black font-mono text-blue-400">{team.score || 0}</p>
-              </div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mt-2">{team.players?.length || 0} jugadores</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-zinc-800">
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <ChartBarIcon className="w-4 h-4 text-yellow-500" />
-            {getWinnerLabel(match)}
+          <div>
+            <h3 className="text-xl font-black uppercase italic text-zinc-100 leading-tight">{item.title}</h3>
+            <p className="text-sm text-zinc-500 mt-2">{item.text}</p>
           </div>
-          <Link href={active ? `/groups/${groupId}/lobby` : `/groups/${groupId}`}>
-            <Button size="sm" variant={active ? 'primary' : 'outline'} className="font-black uppercase">
-              {active ? 'Cargar resultado' : 'Ver detalle'}
-            </Button>
-          </Link>
         </div>
+        <Link href={item.href}>
+          <Button className="w-full bg-blue-600 hover:bg-blue-500 font-black uppercase">
+            {item.action}
+          </Button>
+        </Link>
       </CardContent>
     </Card>
+  );
+}
+
+function ActivityRow({ item }: { item: any }) {
+  return (
+    <Link href={item.href} className="flex items-center gap-4 p-4 rounded-xl hover:bg-zinc-950/70 transition-colors">
+      <div className="h-10 w-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-blue-400 shrink-0">
+        {item.icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-black uppercase italic text-zinc-100 truncate">{item.title}</p>
+        <p className="text-sm text-zinc-500 truncate">{item.text}</p>
+      </div>
+      <ArrowRightIcon className="w-4 h-4 text-zinc-700 shrink-0" />
+    </Link>
+  );
+}
+
+function QuickAction({ href, icon, label, text, primary = false }: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  text: string;
+  primary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-4 rounded-xl border p-4 transition-colors ${
+        primary
+          ? 'bg-blue-600 border-blue-500 text-zinc-50 hover:bg-blue-500'
+          : 'bg-zinc-950/60 border-zinc-800 text-zinc-100 hover:border-blue-500/40'
+      }`}
+    >
+      <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${
+        primary ? 'bg-blue-500/40 text-zinc-50' : 'bg-zinc-900 text-blue-400'
+      }`}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="font-black uppercase italic truncate">{label}</p>
+        <p className={`text-sm truncate ${primary ? 'text-blue-100' : 'text-zinc-500'}`}>{text}</p>
+      </div>
+    </Link>
   );
 }
 
