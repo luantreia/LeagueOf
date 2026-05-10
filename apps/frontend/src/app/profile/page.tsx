@@ -14,10 +14,16 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [formData, setFormData] = useState({
     displayName: user?.displayName || '',
     username: user?.username || '',
     email: user?.email || '',
+  });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   const { data: stats } = useQuery({
@@ -38,9 +44,34 @@ export default function ProfilePage() {
     },
   });
 
+  const changePasswordMutation = useMutation({
+    mutationFn: () => apiClient.changePassword(passwordData.currentPassword, passwordData.newPassword),
+    onSuccess: () => {
+      toast.success('Contraseña cambiada correctamente');
+      setIsChangingPassword(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    },
+    onError: () => {
+      toast.error('Error al cambiar la contraseña');
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfileMutation.mutate(formData);
+  };
+
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    changePasswordMutation.mutate();
   };
 
   if (!user) {
@@ -226,9 +257,75 @@ export default function ProfilePage() {
                 <CardTitle className="text-zinc-100">Acciones</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => setIsChangingPassword(!isChangingPassword)}
+                >
                   Cambiar Contraseña
                 </Button>
+                
+                {isChangingPassword && (
+                  <form onSubmit={handlePasswordChange} className="space-y-3 pt-3 border-t border-zinc-800">
+                    <div>
+                      <Label htmlFor="currentPassword">Contraseña Actual</Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                        className="bg-zinc-800 border-zinc-700"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="newPassword">Nueva Contraseña</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                        className="bg-zinc-800 border-zinc-700"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                        className="bg-zinc-800 border-zinc-700"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={changePasswordMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-500"
+                      >
+                        {changePasswordMutation.isPending ? 'Cambiando...' : 'Cambiar'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIsChangingPassword(false);
+                          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
+                )}
+                
                 <Button variant="outline" className="w-full justify-start">
                   Configuracion de Privacidad
                 </Button>
