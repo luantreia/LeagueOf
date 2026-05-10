@@ -18,10 +18,11 @@ export const createGuest = async (
       phone,
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       data: guest,
     });
+    return;
   } catch (error) {
     next(error);
   }
@@ -31,16 +32,17 @@ export const getGuestsByGroup = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const { groupId } = req.params;
     
     const guests = await guestService.getGuestsByGroup(groupId);
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: guests,
     });
+    return;
   } catch (error) {
     next(error);
   }
@@ -50,13 +52,14 @@ export const deleteGuest = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const { guestId } = req.params;
 
     await guestService.deleteGuest(guestId);
 
-    return res.status(204).send();
+    res.status(204).send();
+    return;
   } catch (error) {
     next(error);
   }
