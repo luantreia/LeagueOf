@@ -6,6 +6,8 @@ import { apiClient } from '@/lib/api/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { PlayerSelect } from '@/components/ui/player-select';
 import { FunnelIcon, TrophyIcon } from '@heroicons/react/24/outline';
 
 type FilterMode = 'group' | 'global';
@@ -208,6 +210,16 @@ export default function RankingsPage() {
     : gameRankings;
 
   const selectedPlayer = playerOptions.find((player) => player.key === selectedPlayerKey);
+  const selectedPlayerStats = useMemo(() => {
+    if (!selectedPlayerKey || !rankings) return null;
+    const playerRanking = rankings.find((r: any) => {
+      const userId = r.user?._id || r.user;
+      const guestId = r.guest?._id || r.guest;
+      return (userId && selectedPlayerKey === `user:${userId}`) || 
+             (guestId && selectedPlayerKey === `guest:${guestId}`);
+    });
+    return playerRanking?.stats || null;
+  }, [selectedPlayerKey, rankings]);
   const isLoading = isLoadingGroups || (filterMode === 'group' ? isLoadingLeaderboard : isLoadingMatches);
   const showPlayerHistory = filterMode === 'global' && !!selectedPlayerKey;
   const title = filterMode === 'group'
@@ -256,33 +268,46 @@ export default function RankingsPage() {
             </select>
           )}
           
-          <select
+          <SearchableSelect
             value={selectedGameType}
-            onChange={(event) => setSelectedGameType(event.target.value)}
-            className="h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
-          >
-            <option value="">Todos los juegos</option>
-            {gameTypes.map((gameType) => (
-              <option key={gameType} value={gameType}>{gameType}</option>
-            ))}
-          </select>
-          
-          <Input
-            placeholder="Buscar jugador"
-            value={selectedPlayerKey}
-            onChange={(event) => setSelectedPlayerKey(event.target.value)}
-            className="h-12 bg-zinc-950 border-zinc-800"
+            onChange={setSelectedGameType}
+            options={gameTypes}
+            placeholder="Todos los juegos"
           />
           
-          <select
-            value={playerRelation}
-            onChange={(event) => setPlayerRelation(event.target.value as PlayerRelationFilter)}
-            className="h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
-          >
-            <option value="all">Todos</option>
-            <option value="synergy">Sinergias</option>
-            <option value="rivalry">Rivalidades</option>
-          </select>
+          <PlayerSelect
+            value={selectedPlayerKey}
+            onChange={setSelectedPlayerKey}
+            options={playerOptions}
+            placeholder="Buscar jugador"
+          />
+          
+          {selectedPlayerKey && (
+            <div className="space-y-2">
+              <select
+                value={playerRelation}
+                onChange={(event) => setPlayerRelation(event.target.value as PlayerRelationFilter)}
+                className="w-full h-12 bg-zinc-950 border border-zinc-800 rounded-xl px-4 text-zinc-100"
+              >
+                <option value="all">Todos</option>
+                <option value="synergy">Sinergias</option>
+                <option value="rivalry">Rivalidades</option>
+              </select>
+              {selectedPlayerStats && (
+                <div className="flex gap-2 text-[10px] font-black uppercase tracking-wider">
+                  <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                    {selectedPlayerStats.wins || 0}G
+                  </span>
+                  <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+                    {selectedPlayerStats.draws || 0}E
+                  </span>
+                  <span className="bg-red-500/20 text-red-400 px-2 py-1 rounded">
+                    {selectedPlayerStats.losses || 0}P
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
